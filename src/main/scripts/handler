@@ -1,0 +1,27 @@
+#!/bin/bash
+# Check if java is installed
+if ! which java > /dev/null; then
+  echo "Java doesn't appear to be installed. You can install Java 25 easily using javaenv like this:"
+  echo ""
+  echo "  curl -fsSL https://lattejava.org/javaenv/install | bash"
+  echo "  javaenv install 25"
+  exit 1
+fi
+
+if ! java -version 2>&1 | grep -q "25.0"; then
+  echo "It looks like the version of Java you have in your path isn't Java 25. You can install Java 25 easily using javaenv like this:"
+  echo ""
+  echo "  curl -fsSL https://lattejava.org/javaenv/install | bash"
+  echo "  javaenv install 25"
+  exit 1
+fi
+
+SCRIPT="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}")"
+HANDLER_HOME="$(dirname "$(dirname "$SCRIPT")")"
+
+CLASSPATH=
+for f in "${HANDLER_HOME}"/lib/*; do
+  CLASSPATH=${CLASSPATH}:${f}
+done
+
+exec java -Dhandler.home="${HANDLER_HOME}" -cp "${CLASSPATH}" dev.theagencyhq.handler.Main "$@"

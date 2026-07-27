@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile default="true" name="Default" enabled="true">
+        <sourceOutputDir name="build/generated/main" />
+        <sourceTestOutputDir name="build/generated/test" />
+        <outputRelativeToContentRoot value="true" />
+      </profile>
+    </annotationProcessing>
+  </component>
+</project>

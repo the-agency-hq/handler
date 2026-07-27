@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JavaScriptLibraryMappings">
+    <excludedPredefinedLibrary name="handler/build/test/scan-0612944b-628d-4fd5-b0df-1f0585df024c/node_modules" />
+    <excludedPredefinedLibrary name="handler/build/test/scan-68c5496e-f68f-4fcd-b276-1a5208553f03/node_modules" />
+  </component>
+</project>

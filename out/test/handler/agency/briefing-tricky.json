@@ -1,0 +1,17 @@
+{
+  "organizationIds": ["44"],
+  "briefs": [
+    {
+      "checksum": "opaque-44-1",
+      "organization": { "id": "44", "name": "Braces { } And \"Quotes\"" },
+      "version": 1,
+      "files": [
+        {
+          "path": ".claude/rules/tricky.md",
+          "content": "A closing brace } then an escaped quote \" then a backslash \\\\ then éü中文",
+          "checksum": "ignored-by-this-test"
+        }
+      ]
+    }
+  ]
+}
