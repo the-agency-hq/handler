@@ -34,6 +34,14 @@ public class HandlerPathsTest extends BaseTest {
   }
 
   @Test
+  public void tokensFileSitsBesideTheConfigFile() {
+    HandlerPaths paths = HandlerPaths.resolve(name -> null, Path.of("/home/dev"));
+
+    Assert.assertEquals(paths.tokensFile(), Path.of("/home/dev/.config/the-agency-hq/tokens.json"));
+    Assert.assertEquals(paths.tokensFile().getParent(), paths.configFile().getParent());
+  }
+
+  @Test
   public void xdgVariablesOverrideDefaults() {
     HandlerPaths paths = HandlerPaths.resolve(Map.of("XDG_CONFIG_HOME", "/etc/xdg",
                                                      "XDG_DATA_HOME", "/var/data",

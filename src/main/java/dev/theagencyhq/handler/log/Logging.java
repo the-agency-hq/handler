@@ -21,6 +21,16 @@ public final class Logging {
   public static final int LOG_FILE_COUNT = 3;
   public static final int LOG_FILE_LIMIT = 5 * 1024 * 1024;
   public static final String LEVEL_PROPERTY = "handler.log.level";
+  /**
+   * The embedded HTTP server behind {@code handler login} narrates its own startup at INFO — including a port line
+   * that reports the configured {@code 0} rather than the ephemeral port it actually bound, which is worse than
+   * noise. None of it belongs on a developer's terminal in the middle of a login, so the package is pinned to
+   * WARNING and above.
+   *
+   * <p>The reference is held statically because {@code LogManager} only weakly retains loggers; a collected logger
+   * silently reverts to the inherited level.
+   */
+  private static final Logger HTTP_LOGGER = Logger.getLogger("org.lattejava.http");
 
   private Logging() {
   }
@@ -53,6 +63,7 @@ public final class Logging {
     }
 
     root.setLevel(level());
+    HTTP_LOGGER.setLevel(Level.WARNING);
   }
 
   private static Level level() {

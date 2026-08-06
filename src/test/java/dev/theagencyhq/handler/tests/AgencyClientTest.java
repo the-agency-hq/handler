@@ -17,13 +17,41 @@ public class AgencyClientTest extends BaseTest {
   private FakeAgency agency;
 
   @Test
+  public void aFailedRefreshMakesTheRejectionFatal() {
+    agency.script(401, "");
+    StubTokenSupplier tokens = new StubTokenSupplier("stale-token");
+
+    BriefingResult result = new AgencyClient(agency.url(), tokens).briefing(List.of());
+
+    Assert.assertTrue(result instanceof BriefingResult.Failed, "Expected Failed but got " + result);
+    Assert.assertTrue(((BriefingResult.Failed) result).authenticationFailure());
+    Assert.assertTrue(((BriefingResult.Failed) result).reason().contains("handler login"),
+                      "The developer needs to be told what to do: " + ((BriefingResult.Failed) result).reason());
+    Assert.assertEquals(tokens.refreshCount(), 1);
+  }
+
+  @Test
+  public void aRejectedTokenIsRetriedOnceWithTheRefreshedToken() throws IOException {
+    agency.script(401, "");
+    agency.script(200, Files.readString(Path.of("src/test/resources/agency/briefing-updated.json")));
+    StubTokenSupplier tokens = new StubTokenSupplier("stale-token", "fresh-token");
+
+    BriefingResult result = new AgencyClient(agency.url(), tokens).briefing(List.of());
+
+    Assert.assertTrue(result instanceof BriefingResult.Updated, "Expected Updated but got " + result);
+    Assert.assertEquals(tokens.refreshCount(), 1);
+    Assert.assertEquals(agency.authorizationHeaders(), List.of("Bearer stale-token", "Bearer fresh-token"));
+  }
+
+  @Test
   public void connectionRefusedIsAFailure() throws IOException {
     int closed;
     try (ServerSocket socket = new ServerSocket(0)) {
       closed = socket.getLocalPort();
     }
 
-    BriefingResult result = new AgencyClient("http://localhost:" + closed, () -> "t").briefing(List.of());
+    BriefingResult result = new AgencyClient("http://localhost:" + closed, new StubTokenSupplier("t"))
+        .briefing(List.of());
 
     Assert.assertTrue(result instanceof BriefingResult.Failed, "Expected Failed but got " + result);
     Assert.assertFalse(((BriefingResult.Failed) result).authenticationFailure());
@@ -92,13 +120,21 @@ public class AgencyClientTest extends BaseTest {
   }
 
   @Test
-  public void unauthorizedIsAFailureFlaggedAsAuthentication() {
+  public void theRetryIsNotItselfRetried() {
+    // A refresh that yields a token the Agency also rejects must terminate, not loop
     agency.script(401, "");
+    agency.script(401, "");
+    StubTokenSupplier tokens = new StubTokenSupplier("stale-token", "also-rejected");
 
-    BriefingResult result = client().briefing(List.of());
+    BriefingResult result = new AgencyClient(agency.url(), tokens).briefing(List.of());
 
     Assert.assertTrue(result instanceof BriefingResult.Failed, "Expected Failed but got " + result);
     Assert.assertTrue(((BriefingResult.Failed) result).authenticationFailure());
+    Assert.assertTrue(((BriefingResult.Failed) result).reason().contains("refreshed access token"),
+                      "The rejection of a freshly minted token is its own diagnosis: "
+                          + ((BriefingResult.Failed) result).reason());
+    Assert.assertEquals(tokens.refreshCount(), 1, "Refresh must be attempted once, not once per 401");
+    Assert.assertEquals(agency.authorizationHeaders().size(), 2, "Exactly two requests: the original and one retry");
   }
 
   @Test
@@ -120,6 +156,6 @@ public class AgencyClientTest extends BaseTest {
   }
 
   private AgencyClient client() {
-    return new AgencyClient(agency.url(), () -> "test-token");
+    return new AgencyClient(agency.url(), new StubTokenSupplier("test-token"));
   }
 }

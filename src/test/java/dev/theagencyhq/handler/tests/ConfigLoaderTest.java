@@ -21,7 +21,7 @@ public class ConfigLoaderTest extends BaseTest {
   @Test
   public void environmentOverridesStartDirectory() throws IOException {
     Path configFile = write("""
-        {"startDirectory":"/from/file","theAgencyURL":"http://localhost:9011"}
+        {"startDirectory":"/from/file","theAgencyURL":"http://localhost:9015"}
         """);
     Path override = base.resolve("from-env").toAbsolutePath();
 
@@ -29,7 +29,7 @@ public class ConfigLoaderTest extends BaseTest {
                                             Map.of("THE_AGENCY_HQ_START_DIRECTORY", override.toString())::get).load();
 
     assertEquals(config.startDirectoryPath(), override);
-    assertEquals(config.theAgencyURL(), "http://localhost:9011");
+    assertEquals(config.theAgencyURL(), "http://localhost:9015");
   }
 
   @Test
@@ -79,7 +79,8 @@ public class ConfigLoaderTest extends BaseTest {
   }
 
   private HandlerPaths paths(Path configFile) {
-    return new HandlerPaths(configFile, base.resolve("briefs"), base.resolve("handler.log"));
+    return new HandlerPaths(configFile, base.resolve("tokens.json"), base.resolve("briefs"),
+                            base.resolve("handler.log"));
   }
 
   private Path write(String json) throws IOException {

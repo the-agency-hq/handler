@@ -143,7 +143,7 @@ public class LocationScannerTest extends BaseTest {
   }
 
   private List<Location> scan() {
-    HandlerConfig config = new HandlerConfig(base.toString(), null, null, null, null, 0, 0);
+    HandlerConfig config = new HandlerConfig(base.toString(), null, null, null, 0, 0);
     return new LocationScanner(config).scan();
   }
 }

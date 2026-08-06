@@ -5,7 +5,9 @@
 module dev.theagencyhq.handler.tests {
   requires dev.theagencyhq.handler;
   requires java.logging;
+  requires java.net.http;
   requires org.lattejava.http;
+  requires org.lattejava.jwt;
   requires org.lattejava.version;
   requires org.testng;
 

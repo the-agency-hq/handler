@@ -37,9 +37,8 @@ public class ConfigLoader {
     String override = env.apply(START_DIRECTORY_VARIABLE);
     if (override != null && !override.isBlank()) {
       LOG.log(System.Logger.Level.DEBUG, "Start directory overridden by [{0}]", START_DIRECTORY_VARIABLE);
-      config = new HandlerConfig(override, config.excludeDirectories(), config.theAgencyURL(), config.accessToken(),
-                                 config.refreshToken(), config.receiveIntervalSeconds(),
-                                 config.distributeIntervalSeconds());
+      config = new HandlerConfig(override, config.excludeDirectories(), config.theAgencyURL(), config.authURL(),
+                                 config.receiveIntervalSeconds(), config.distributeIntervalSeconds());
     }
 
     return config;
@@ -57,7 +56,7 @@ public class ConfigLoader {
 
   private HandlerConfig write(Path configFile) {
     // Every field is null or zero, so the compact constructor fills in the complete default set
-    HandlerConfig config = new HandlerConfig(null, null, null, null, null, 0, 0);
+    HandlerConfig config = new HandlerConfig(null, null, null, null, 0, 0);
     try {
       Files.createDirectories(configFile.getParent());
       // Pretty-printed, and newline-terminated: this file exists to be opened and edited by a developer

@@ -7,12 +7,12 @@ package dev.theagencyhq.handler.config;
 import module java.base;
 
 /**
- * The three filesystem locations the Handler owns, resolved once in {@code Main} and injected everywhere else so tests
+ * The four filesystem locations the Handler owns, resolved once in {@code Main} and injected everywhere else so tests
  * never touch the real home directory.
  *
  * @author Brian Pontarelli
  */
-public record HandlerPaths(Path configFile, Path storeRoot, Path logFile) {
+public record HandlerPaths(Path configFile, Path tokensFile, Path storeRoot, Path logFile) {
   private static final String VENDOR_DIRECTORY = "the-agency-hq";
 
   /**
@@ -39,6 +39,7 @@ public record HandlerPaths(Path configFile, Path storeRoot, Path logFile) {
     Path state = base(env, "XDG_STATE_HOME", home.resolve(Path.of(".local", "state")));
 
     return new HandlerPaths(config.resolve(VENDOR_DIRECTORY).resolve("handler.json"),
+                            config.resolve(VENDOR_DIRECTORY).resolve("tokens.json"),
                             data.resolve(VENDOR_DIRECTORY).resolve("briefs"),
                             state.resolve(VENDOR_DIRECTORY).resolve("handler.log"));
   }

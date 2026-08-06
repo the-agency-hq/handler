@@ -143,11 +143,11 @@ public class HandlerTest extends BaseTest {
   }
 
   private Handler handler() throws IOException {
-    HandlerConfig config = new HandlerConfig(locations().toString(), null, agency.url(), "token", null,
-        3600, 3600);
+    HandlerConfig config = new HandlerConfig(locations().toString(), null, agency.url(), null, 3600, 3600);
     distributeThread = new CountingDistributeThread(config, store, new LocationScanner(config), new BriefPlanner(),
                                                     new LocationApplier());
-    return new Handler(config, new AgencyClient(config.theAgencyURL(), config::accessToken), store, distributeThread);
+    return new Handler(config, new AgencyClient(config.theAgencyURL(), new StubTokenSupplier("test-token")), store,
+                       distributeThread);
   }
 
   /** Counts distribute calls so the nudge can be observed without adding production indirection. */

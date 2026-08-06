@@ -19,6 +19,14 @@ public class HandlerConfigTest extends BaseTest {
     assertEquals(config.excludeDirectories(), List.of("build", "node_modules", "output", ".*", "Library", "OrbStack"));
   }
 
+  @Test
+  public void authURLDefaultsAndStripsATrailingSlash() {
+    assertEquals(new HandlerConfig(null, null, null, null, 0, 0).authURL(), "https://auth.theagencyhq.dev");
+    assertEquals(new HandlerConfig(null, null, null, "  ", 0, 0).authURL(), "https://auth.theagencyhq.dev");
+    assertEquals(new HandlerConfig(null, null, null, "http://localhost:9015/", 0, 0).authURL(),
+                 "http://localhost:9015");
+  }
+
   @Test(dataProvider = "intervals")
   public void intervalsDefaultAndClamp(int receive, int distribute, int expectedReceive, int expectedDistribute) {
     HandlerConfig config = config(null, null, receive, distribute);
@@ -47,7 +55,7 @@ public class HandlerConfigTest extends BaseTest {
 
   @Test
   public void suppliedExcludeDirectoriesAreTrimmed() {
-    var config = new HandlerConfig(null, List.of("  build  ", "node_modules", " .* "), null, null, null, 0, 0);
+    var config = new HandlerConfig(null, List.of("  build  ", "node_modules", " .* "), null, null, 0, 0);
     assertEquals(config.excludeDirectories(), List.of("build", "node_modules", ".*"));
   }
 
@@ -63,6 +71,6 @@ public class HandlerConfigTest extends BaseTest {
   }
 
   private HandlerConfig config(String startDirectory, String theAgencyURL, int receive, int distribute) {
-    return new HandlerConfig(startDirectory, null, theAgencyURL, null, null, receive, distribute);
+    return new HandlerConfig(startDirectory, null, theAgencyURL, null, receive, distribute);
   }
 }

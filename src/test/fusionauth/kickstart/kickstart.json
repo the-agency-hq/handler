@@ -1,0 +1,130 @@
+{
+  "variables": {
+    "adminEmail": "admin@theagencyhq.dev",
+    "adminPassword": "password",
+    "adminUserId": "#{UUID()}",
+    "agentEmail": "agent@theagencyhq.dev",
+    "agentPassword": "password",
+    "agentUserId": "#{UUID()}",
+    "apiKey": "33052c8a-c283-4e96-9d2a-eb1215c69f8f-not-for-prod",
+    "asymmetricKeyId": "#{UUID()}",
+    "defaultTenantId": "d7d09513-a3f5-401c-9685-34ab6c552453",
+    "handlerApplicationId": "fa83bc7c-f1c5-48af-8ecb-6c09cf766d73",
+    "accessTokenPopulateLambdaId": "#{UUID()}"
+  },
+  "apiKeys": [
+    {
+      "key": "#{apiKey}",
+      "description": "Unrestricted API key"
+    }
+  ],
+  "requests": [
+    {
+      "method": "POST",
+      "url": "/api/key/generate/#{asymmetricKeyId}",
+      "body": {
+        "key": {
+          "algorithm": "RS256",
+          "name": "For The Agency",
+          "length": 2048
+        }
+      }
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/tenant/#{defaultTenantId}",
+      "body": {
+        "tenant": {
+          "issuer": "http://localhost:9015"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/lambda/#{accessTokenPopulateLambdaId}",
+      "body": {
+        "lambda": {
+          "name": "[Handler] Access token populate",
+          "type": "JWTPopulate",
+          "engineType": "GraalJS",
+          "body": "function populate(jwt, user, registration) {\n  jwt.preferred_username = user.username;\n  jwt.email = user.email;\n}"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/application/#{handlerApplicationId}",
+      "tenantId": "#{defaultTenantId}",
+      "body": {
+        "application": {
+          "name": "The Agency Handler",
+          "oauthConfiguration": {
+            "authorizedRedirectURLs": [
+              "http://127.0.0.1:*/callback"
+            ],
+            "authorizedURLValidationPolicy": "AllowWildcards",
+            "clientAuthenticationPolicy": "NotRequired",
+            "proofKeyForCodeExchangePolicy": "Required",
+            "consentMode": "NeverPrompt",
+            "enabledGrants": [
+              "authorization_code",
+              "refresh_token"
+            ],
+            "generateRefreshTokens": true,
+            "requireRegistration": true
+          },
+          "jwtConfiguration": {
+            "enabled": true,
+            "accessTokenKeyId": "#{asymmetricKeyId}",
+            "idTokenKeyId": "#{asymmetricKeyId}"
+          },
+          "lambdaConfiguration": {
+            "accessTokenPopulateId": "#{accessTokenPopulateLambdaId}"
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/user/registration/#{adminUserId}",
+      "body": {
+        "registration": {
+          "applicationId": "#{FUSIONAUTH_APPLICATION_ID}",
+          "roles": [
+            "admin"
+          ]
+        },
+        "skipRegistrationVerification": true,
+        "user": {
+          "email": "#{adminEmail}",
+          "username": "AdminUser",
+          "password": "#{adminPassword}"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/user/registration/#{agentUserId}",
+      "body": {
+        "registration": {
+          "applicationId": "#{handlerApplicationId}"
+        },
+        "skipRegistrationVerification": true,
+        "user": {
+          "email": "#{agentEmail}",
+          "username": "Agent",
+          "password": "#{agentPassword}"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/user/registration/#{adminUserId}",
+      "body": {
+        "registration": {
+          "applicationId": "#{handlerApplicationId}"
+        }
+      }
+    }
+  ]
+}

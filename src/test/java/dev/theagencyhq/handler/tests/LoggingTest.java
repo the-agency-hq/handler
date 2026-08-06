@@ -155,7 +155,7 @@ public class LoggingTest extends BaseTest {
   }
 
   private HandlerPaths paths(Path logFile) {
-    return new HandlerPaths(base.resolve("handler.json"), base.resolve("store"), logFile);
+    return new HandlerPaths(base.resolve("handler.json"), base.resolve("tokens.json"), base.resolve("store"), logFile);
   }
 
   private Path writtenLogFile(Path logFile) {

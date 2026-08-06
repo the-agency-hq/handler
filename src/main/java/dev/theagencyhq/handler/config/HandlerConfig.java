@@ -17,8 +17,8 @@ import dev.theagencyhq.handler.config.internal.HandlerConfigJSON;
  */
 @JSON
 public record HandlerConfig(String startDirectory, List<String> excludeDirectories, String theAgencyURL,
-                            String accessToken, String refreshToken, int receiveIntervalSeconds,
-                            int distributeIntervalSeconds) {
+                            String authURL, int receiveIntervalSeconds, int distributeIntervalSeconds) {
+  public static final String DEFAULT_AUTH_URL = "https://auth.theagencyhq.dev";
   public static final int DEFAULT_DISTRIBUTE_INTERVAL_SECONDS = 60;
   public static final List<String> DEFAULT_EXCLUDE_DIRECTORIES = List.of("build", "node_modules", "output", ".*", "Library", "OrbStack");
   public static final int DEFAULT_RECEIVE_INTERVAL_SECONDS = 300;
@@ -31,8 +31,7 @@ public record HandlerConfig(String startDirectory, List<String> excludeDirectori
                                                     : excludeDirectories.stream().map(String::trim).toList();
     theAgencyURL = theAgencyURL == null || theAgencyURL.isBlank() ? DEFAULT_THE_AGENCY_URL
                                                                   : stripTrailingSlash(theAgencyURL.trim());
-    accessToken = accessToken == null ? "" : accessToken.trim();
-    refreshToken = refreshToken == null ? "" : refreshToken.trim();
+    authURL = authURL == null || authURL.isBlank() ? DEFAULT_AUTH_URL : stripTrailingSlash(authURL.trim());
     receiveIntervalSeconds = interval(receiveIntervalSeconds, DEFAULT_RECEIVE_INTERVAL_SECONDS);
     distributeIntervalSeconds = interval(distributeIntervalSeconds, DEFAULT_DISTRIBUTE_INTERVAL_SECONDS);
   }

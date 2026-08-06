@@ -11,10 +11,11 @@ project(group: "dev.the-agency-hq", name: "handler", version: "0.1.0", licenses:
       dependency(id: "org.lattejava:json:0.4.3")
     }
     group(name: "compile") {
+      dependency(id: "org.lattejava:http:0.3.0")
+      dependency(id: "org.lattejava:jwt:0.2.0")
       dependency(id: "org.lattejava:version:0.6.2")
     }
     group(name: "test-compile", export: false) {
-      dependency(id: "org.lattejava:http:0.3.0")
       dependency(id: "org.testng:testng:7.10.2")
     }
   }

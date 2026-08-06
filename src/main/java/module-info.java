@@ -5,12 +5,15 @@
 module dev.theagencyhq.handler {
   requires java.logging;
   requires java.net.http;
+  requires org.lattejava.http;
   requires static org.lattejava.json;
+  requires org.lattejava.jwt;
   requires org.lattejava.version;
 
   exports dev.theagencyhq.handler;
   exports dev.theagencyhq.handler.agency;
   exports dev.theagencyhq.handler.apply;
+  exports dev.theagencyhq.handler.auth;
   exports dev.theagencyhq.handler.brief;
   exports dev.theagencyhq.handler.cli;
   exports dev.theagencyhq.handler.config;

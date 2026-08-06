@@ -14,6 +14,7 @@ import dev.theagencyhq.handler.Handler;
 import dev.theagencyhq.handler.agency.AgencyClient;
 import dev.theagencyhq.handler.apply.BriefPlanner;
 import dev.theagencyhq.handler.apply.LocationApplier;
+import dev.theagencyhq.handler.auth.*;
 import dev.theagencyhq.handler.cli.HandlerCLI;
 import dev.theagencyhq.handler.config.HandlerConfig;
 import dev.theagencyhq.handler.config.HandlerPaths;
@@ -26,10 +27,61 @@ public class HandlerCLITest extends BaseTest {
   private ByteArrayOutputStream output;
 
   @Test
+  public void aMalformedAuthURLFailsCLIStartup() throws IOException {
+    // "localhost:9015" parses with scheme [localhost] and no host, which is the typo the README's instruction invites.
+    // The configuration file is required to be perfect, therefore we fail the CLI run
+    expectThrows(AuthenticationException.class, () -> assertEquals(cli("localhost:9015").run("status"), 0));
+  }
+
+  @Test
+  public void daemonRefusesToStartWhenTheIssuerCannotBeReached() throws IOException {
+    // The credential may well be fine; the Handler simply cannot tell yet, so the advice must be about the network
+    tokenStore().store(new Tokens("access", "refresh"));
+
+    assertEquals(cli().run("daemon"), 1);
+
+    String printed = output.toString();
+    assertTrue(printed.contains("could not reach"), "Output was: " + printed);
+    assertTrue(printed.contains("network"), "Output was: " + printed);
+    assertFalse(printed.contains("handler login"), "Wrong advice when the network is down: " + printed);
+  }
+
+  @Test
+  public void daemonRefusesToStartWithoutCredentials() throws IOException {
+    // Starting anyway would look healthy to launchd while receiving nothing, and the developer would find out hours
+    // later from an empty Location instead of now, from a message
+    assertEquals(cli().run("daemon"), 1);
+
+    String printed = output.toString();
+    assertTrue(printed.contains("not logged in"), "Output was: " + printed);
+    assertTrue(printed.contains("handler login"), "Output was: " + printed);
+  }
+
+  @Test
   public void helpAndVersionExitZero() throws IOException {
     assertEquals(cli().run("help"), 0);
     assertEquals(cli().run("--version"), 0);
     assertTrue(output.toString().contains("handler"), "Output was: " + output);
+  }
+
+  @Test
+  public void helpNamesLoginAndLogout() throws IOException {
+    assertEquals(cli().run("help"), 0);
+    assertTrue(output.toString().contains("login"), "Output was: " + output);
+    assertTrue(output.toString().contains("logout"), "Output was: " + output);
+  }
+
+  @Test
+  public void logoutClearsTheTokenFileAndIsIdempotent() throws IOException {
+    tokenStore().store(new Tokens("access", "refresh"));
+
+    assertEquals(cli().run("logout"), 0);
+    assertFalse(Files.exists(tokensFile()));
+    assertTrue(output.toString().contains("Logged out"), "Output was: " + output);
+
+    output.reset();
+    assertEquals(cli().run("logout"), 0, "Logging out twice is not an error");
+    assertTrue(output.toString().contains("Not logged in"), "Output was: " + output);
   }
 
   @BeforeMethod
@@ -59,14 +111,13 @@ public class HandlerCLITest extends BaseTest {
   }
 
   @Test
-  public void statusNeverPrintsTheToken() throws IOException {
-    store.store(brief("42", 1, file(".claude/a.md", "alpha")));
-    location("app", "42");
+  public void statusReportsAnUnreadableTokenFileRatherThanFailing() throws IOException {
+    // The daemon already treats a mangled tokens.json as non-fatal; the command run to find it must not be stricter
+    Files.createDirectories(tokensFile().getParent());
+    Files.writeString(tokensFile(), "{not json at all");
 
-    cli().run("status");
-
-    assertFalse(output.toString().contains("super-secret"), "The token must never be printed");
-    assertTrue(output.toString().contains("accessToken"), "Output was: " + output);
+    assertEquals(cli().run("status"), 0);
+    assertTrue(output.toString().contains("accessToken  unreadable"), "Output was: " + output);
   }
 
   @Test
@@ -88,6 +139,20 @@ public class HandlerCLITest extends BaseTest {
     String printed = output.toString();
     assertTrue(printed.contains("  " + unchanged + "  unchanged"), "Output was: " + printed);
     assertTrue(printed.contains("  " + conflicted + "  conflict"), "Output was: " + printed);
+  }
+
+  @Test
+  public void statusReportsTokenPresenceFromTheTokenStoreAndNeverPrintsIt() throws IOException {
+    assertEquals(cli().run("status"), 0);
+    assertTrue(output.toString().contains("accessToken  absent"), "Output was: " + output);
+
+    output.reset();
+    tokenStore().store(new Tokens("super-secret-token", "refresh"));
+
+    assertEquals(cli().run("status"), 0);
+    String printed = output.toString();
+    assertTrue(printed.contains("accessToken  present"), "Output was: " + printed);
+    assertFalse(printed.contains("super-secret-token"), "The token must never be printed. Output was: " + printed);
   }
 
   @Test
@@ -123,18 +188,50 @@ public class HandlerCLITest extends BaseTest {
     assertEquals(cli().run("frobnicate"), 1);
   }
 
+  /**
+   * Points {@code authURL} at a port nothing is listening on. {@code status} introspects the stored token against the
+   * issuer, so without this every test that runs it would reach for the real production IdP over the network — slow
+   * when it resolves and flaky when it does not. A refused connection is immediate and deterministic.
+   */
   private HandlerCLI cli() throws IOException {
-    HandlerConfig config = new HandlerConfig(locations().toString(), null, agency.url(), "super-secret",
-                                            null, 3600, 3600);
-    HandlerPaths paths = new HandlerPaths(base.resolve("handler.json"), storeRoot(),
+    return cli("http://localhost:" + closedPort());
+  }
+
+  private HandlerCLI cli(String authURL) throws IOException {
+    HandlerConfig config = new HandlerConfig(locations().toString(), null, agency.url(), authURL, 3600, 3600);
+    HandlerPaths paths = new HandlerPaths(base.resolve("handler.json"), tokensFile(), storeRoot(),
                                           base.resolve("handler.log"));
     LocationScanner scanner = new LocationScanner(config);
     BriefPlanner planner = new BriefPlanner();
     LocationApplier applier = new LocationApplier();
     DistributeThread distributeThread = new DistributeThread(config, store, scanner, planner, applier);
-    Handler handler = new Handler(config, new AgencyClient(config.theAgencyURL(), config::accessToken), store,
-                                  distributeThread);
+    Handler handler = new Handler(config, new AgencyClient(config.theAgencyURL(), new StubTokenSupplier("test-token")),
+                                  store, distributeThread);
+    TokenStore tokenStore = tokenStore();
+    // Mirrors Main, which resolves rather than constructs so a bad authURL cannot keep the CLI from running
+    AuthConfiguration authConfiguration = new AuthConfiguration(config.authURL());
+    OAuthClient oauthClient = new OAuthClient(authConfiguration);
+    Login login = new Login(authConfiguration, oauthClient, tokenStore, (url, out) -> { });
+    Credentials credentials = new Credentials(tokenStore, oauthClient, new AccessTokens(authConfiguration));
 
-    return new HandlerCLI(paths, config, store, scanner, planner, applier, handler, new PrintStream(output, true));
+    return new HandlerCLI(paths, config, store, scanner, planner, applier, handler, login, tokenStore, credentials,
+                          new PrintStream(output, true));
+  }
+
+  /**
+   * @return A port that was just released, so connecting to it is refused rather than hanging.
+   */
+  private int closedPort() throws IOException {
+    try (ServerSocket socket = new ServerSocket(0)) {
+      return socket.getLocalPort();
+    }
+  }
+
+  private Path tokensFile() {
+    return base.resolve("config/tokens.json");
+  }
+
+  private TokenStore tokenStore() {
+    return new TokenStore(tokensFile());
   }
 }

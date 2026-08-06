@@ -270,7 +270,7 @@ public class DistributeThreadTest extends BaseTest {
   }
 
   private DistributeThread.Summary distribute(boolean force) throws IOException {
-    HandlerConfig config = new HandlerConfig(locations().toString(), null, null, null, null, 0, 0);
+    HandlerConfig config = new HandlerConfig(locations().toString(), null, null, null, 0, 0);
     return new DistributeThread(config, store, new LocationScanner(config), new BriefPlanner(), new LocationApplier())
         .distribute(force);
   }

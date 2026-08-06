@@ -125,7 +125,7 @@ public class ReceiveThreadTest extends BaseTest {
     agency.start();
 
     // Neither thread is started - execute() is called directly, and nudge() is counted rather than delivered
-    HandlerConfig config = new HandlerConfig(base.toString(), null, agency.url(), "token", null, 3600, 3600);
+    HandlerConfig config = new HandlerConfig(base.toString(), null, agency.url(), null, 3600, 3600);
     DistributeThread distributeThread = new DistributeThread(config, store, new LocationScanner(config),
                                                              new BriefPlanner(), new LocationApplier()) {
       @Override
@@ -133,7 +133,8 @@ public class ReceiveThreadTest extends BaseTest {
         nudges.incrementAndGet();
       }
     };
-    receiveThread = new ReceiveThread(config, new AgencyClient(agency.url(), () -> "token"), store, distributeThread);
+    receiveThread = new ReceiveThread(config, new AgencyClient(agency.url(), new StubTokenSupplier("token")), store,
+                                      distributeThread);
   }
 
   @AfterMethod
