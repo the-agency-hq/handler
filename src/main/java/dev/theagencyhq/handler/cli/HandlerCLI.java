@@ -28,6 +28,7 @@ public class HandlerCLI {
   private final HandlerConfig config;
   private final Credentials credentials;
   private final Handler handler;
+  private final Init init;
   private final Login login;
   private final PrintStream out;
   private final HandlerPaths paths;
@@ -37,7 +38,7 @@ public class HandlerCLI {
   private final TokenStore tokenStore;
 
   public HandlerCLI(HandlerPaths paths, HandlerConfig config, BriefStore store, LocationScanner scanner,
-                    BriefPlanner planner, LocationApplier applier, Handler handler, Login login,
+                    BriefPlanner planner, LocationApplier applier, Handler handler, Init init, Login login,
                     TokenStore tokenStore, Credentials credentials, PrintStream out) {
     this.paths = paths;
     this.config = config;
@@ -46,6 +47,7 @@ public class HandlerCLI {
     this.planner = planner;
     this.applier = applier;
     this.handler = handler;
+    this.init = init;
     this.login = login;
     this.tokenStore = tokenStore;
     this.credentials = credentials;
@@ -79,6 +81,7 @@ public class HandlerCLI {
       case "daemon" -> daemon();
       case "sync" -> sync(Arrays.asList(args).contains("--force"));
       case "status" -> status();
+      case "init" -> init.run();
       case "login" -> login();
       case "logout" -> logout();
       case "help", "--help", "-h" -> {
@@ -247,6 +250,7 @@ public class HandlerCLI {
           daemon             Run the receive and distribute loops in the foreground (default)
           sync [--force]     Run one receive pass then one distribute pass, then exit
           status             Print resolved paths, stored Organizations, and every Location's state
+          init               Choose an Organization and write agent-location.json in the current directory
           login              Log in to The Agency through your browser
           logout             Discard the stored tokens
           help               Print this message

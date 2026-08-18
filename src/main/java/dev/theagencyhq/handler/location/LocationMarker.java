@@ -39,4 +39,12 @@ public record LocationMarker(@JSONField(asString = true) Version version, String
   public int majorVersion() {
     return version == null ? -1 : version.major();
   }
+
+  /**
+   * @return This marker as indented JSON, the form {@code handler init} writes to disk so the file is pleasant to read
+   *     and diff.
+   */
+  public String toPrettyString() {
+    return LocationMarkerJSON.toPrettyString(this);
+  }
 }

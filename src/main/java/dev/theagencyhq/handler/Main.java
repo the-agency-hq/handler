@@ -22,6 +22,9 @@ import dev.theagencyhq.handler.auth.TokenStore;
 import dev.theagencyhq.handler.brief.BriefStore;
 import dev.theagencyhq.handler.brief.FileBriefStore;
 import dev.theagencyhq.handler.cli.HandlerCLI;
+import dev.theagencyhq.handler.cli.Init;
+import dev.theagencyhq.handler.cli.OrganizationSelector;
+import dev.theagencyhq.handler.cli.UnixTerminal;
 import dev.theagencyhq.handler.config.ConfigLoader;
 import dev.theagencyhq.handler.config.HandlerConfig;
 import dev.theagencyhq.handler.config.HandlerPaths;
@@ -66,8 +69,10 @@ public final class Main {
       Handler handler = new Handler(config, agency, store, distributeThread);
       Runtime.getRuntime().addShutdownHook(new Thread(handler::shutdown, "handler-shutdown"));
 
-      HandlerCLI cli = new HandlerCLI(paths, config, store, scanner, planner, applier, handler, login, tokenStore,
-                                      credentials, System.out);
+      OrganizationSelector selector = new OrganizationSelector(System.in, System.out, new UnixTerminal());
+      Init init = new Init(agency, selector, Path.of("").toAbsolutePath(), System.in, System.out);
+      HandlerCLI cli = new HandlerCLI(paths, config, store, scanner, planner, applier, handler, init, login,
+                                      tokenStore, credentials, System.out);
       System.exit(cli.run(args));
     } catch (Exception e) {
       // Exiting 0 after this message would tell launchd and systemd the daemon shut down cleanly and needs no restart

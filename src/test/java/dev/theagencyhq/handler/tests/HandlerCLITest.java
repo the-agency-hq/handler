@@ -15,7 +15,7 @@ import dev.theagencyhq.handler.agency.AgencyClient;
 import dev.theagencyhq.handler.apply.BriefPlanner;
 import dev.theagencyhq.handler.apply.LocationApplier;
 import dev.theagencyhq.handler.auth.*;
-import dev.theagencyhq.handler.cli.HandlerCLI;
+import dev.theagencyhq.handler.cli.*;
 import dev.theagencyhq.handler.config.HandlerConfig;
 import dev.theagencyhq.handler.config.HandlerPaths;
 import dev.theagencyhq.handler.location.LocationScanner;
@@ -65,10 +65,18 @@ public class HandlerCLITest extends BaseTest {
   }
 
   @Test
-  public void helpNamesLoginAndLogout() throws IOException {
+  public void helpNamesInitLoginAndLogout() throws IOException {
     assertEquals(cli().run("help"), 0);
+    assertTrue(output.toString().contains("init"), "Output was: " + output);
     assertTrue(output.toString().contains("login"), "Output was: " + output);
     assertTrue(output.toString().contains("logout"), "Output was: " + output);
+  }
+
+  @Test
+  public void initIsDispatchedAndReportsAnAgencyFailure() throws IOException {
+    // Nothing scripted, so the FakeAgency answers 500 — this only proves the subcommand reaches Init
+    assertEquals(cli().run("init"), 1);
+    assertTrue(output.toString().contains("status [500]"), "Output was: " + output);
   }
 
   @Test
@@ -205,17 +213,21 @@ public class HandlerCLITest extends BaseTest {
     BriefPlanner planner = new BriefPlanner();
     LocationApplier applier = new LocationApplier();
     DistributeThread distributeThread = new DistributeThread(config, store, scanner, planner, applier);
-    Handler handler = new Handler(config, new AgencyClient(config.theAgencyURL(), new StubTokenSupplier("test-token")),
-                                  store, distributeThread);
+    AgencyClient agencyClient = new AgencyClient(config.theAgencyURL(), new StubTokenSupplier("test-token"));
+    Handler handler = new Handler(config, agencyClient, store, distributeThread);
     TokenStore tokenStore = tokenStore();
     // Mirrors Main, which resolves rather than constructs so a bad authURL cannot keep the CLI from running
     AuthConfiguration authConfiguration = new AuthConfiguration(config.authURL());
     OAuthClient oauthClient = new OAuthClient(authConfiguration);
     Login login = new Login(authConfiguration, oauthClient, tokenStore, (url, out) -> { });
     Credentials credentials = new Credentials(tokenStore, oauthClient, new AccessTokens(authConfiguration));
+    PrintStream printStream = new PrintStream(output, true);
+    OrganizationSelector selector = new OrganizationSelector(InputStream.nullInputStream(), printStream,
+                                                             new StubTerminal());
+    Init init = new Init(agencyClient, selector, base, InputStream.nullInputStream(), printStream);
 
-    return new HandlerCLI(paths, config, store, scanner, planner, applier, handler, login, tokenStore, credentials,
-                          new PrintStream(output, true));
+    return new HandlerCLI(paths, config, store, scanner, planner, applier, handler, init, login, tokenStore,
+                          credentials, printStream);
   }
 
   /**

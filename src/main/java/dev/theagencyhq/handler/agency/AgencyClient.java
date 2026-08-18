@@ -8,13 +8,14 @@ import module java.base;
 import module java.net.http;
 
 /**
- * The Agency API client. Every network and protocol failure is converted into a {@link BriefingResult} — this class
- * never throws, because an unavailable Agency must never stop the Handler from distributing what it already has.
+ * The Agency API client. Every network and protocol failure is converted into a result — this class never throws,
+ * because an unavailable Agency must never stop the Handler from distributing what it already has.
  *
  * @author Brian Pontarelli
  */
 public class AgencyClient {
   public static final String BRIEFING_PATH = "/api/v1/briefing";
+  public static final String ORGANIZATION_PATH = "/api/v1/organization";
   private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
   private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
@@ -38,42 +39,55 @@ public class AgencyClient {
       return new BriefingResult.Failed("Unable to build the briefing request: " + e.getMessage(), false);
     }
 
-    HttpResponse<byte[]> response;
-    switch (send(body)) {
-      case Attempt.Failure failure -> {
-        return failure.result();
-      }
-      case Attempt.Response ok -> response = ok.response();
-    }
-
-    // One retry, only on 401, and only when the supplier says it has something better. The retry's own 401 is
-    // terminal — a refreshed token the Agency still rejects means re-authentication, not another loop.
-    if (response.statusCode() == 401) {
-      if (!tokens.refresh()) {
-        return new BriefingResult.Failed("The Agency rejected the access token. Run [handler login].", true);
-      }
-
-      switch (send(body)) {
-        case Attempt.Failure failure -> {
-          return failure.result();
-        }
-        case Attempt.Response ok -> response = ok.response();
-      }
-
-      if (response.statusCode() == 401) {
-        return new BriefingResult.Failed("The Agency rejected the refreshed access token. Run [handler login].", true);
-      }
-    }
-
-    return switch (response.statusCode()) {
-      case 200 -> parse(response.body());
-      case 304 -> new BriefingResult.NotModified();
-      case 403 -> new BriefingResult.Forbidden();
-      default -> new BriefingResult.Failed("The Agency returned status [" + response.statusCode() + "]", false);
+    return switch (exchange(() -> request(BRIEFING_PATH).header("Content-Type", "application/json")
+                                                        .POST(HttpRequest.BodyPublishers.ofByteArray(body)))) {
+      case Attempt.Failure(String reason, boolean authenticationFailure) ->
+          new BriefingResult.Failed(reason, authenticationFailure);
+      case Attempt.Response(HttpResponse<byte[]> response) -> switch (response.statusCode()) {
+        case 200 -> parseBriefing(response.body());
+        case 304 -> new BriefingResult.NotModified();
+        case 403 -> new BriefingResult.Forbidden();
+        default -> new BriefingResult.Failed("The Agency returned status [" + response.statusCode() + "]", false);
+      };
     };
   }
 
-  private BriefingResult parse(byte[] body) {
+  public OrganizationResult organizations() {
+    return switch (exchange(() -> request(ORGANIZATION_PATH).GET())) {
+      case Attempt.Failure(String reason, boolean ignored) -> new OrganizationResult.Failed(reason);
+      case Attempt.Response(HttpResponse<byte[]> response) -> switch (response.statusCode()) {
+        case 200 -> parseOrganizations(response.body());
+        default -> new OrganizationResult.Failed("The Agency returned status [" + response.statusCode() + "]");
+      };
+    };
+  }
+
+  /**
+   * Sends the request once, then once more after a refresh when The Agency answers 401. The retry's own 401 is
+   * terminal — a refreshed token the Agency still rejects means re-authentication, not another loop.
+   *
+   * @param requests Builds a fresh request per attempt, so the retry picks up the refreshed bearer token.
+   * @return The final response, or the failure it should be reported as.
+   */
+  private Attempt exchange(Supplier<HttpRequest.Builder> requests) {
+    Attempt attempt = send(requests);
+    if (!(attempt instanceof Attempt.Response(HttpResponse<byte[]> response)) || response.statusCode() != 401) {
+      return attempt;
+    }
+
+    if (!tokens.refresh()) {
+      return new Attempt.Failure("The Agency rejected the access token. Run [handler login].", true);
+    }
+
+    attempt = send(requests);
+    if (attempt instanceof Attempt.Response(HttpResponse<byte[]> retried) && retried.statusCode() == 401) {
+      return new Attempt.Failure("The Agency rejected the refreshed access token. Run [handler login].", true);
+    }
+
+    return attempt;
+  }
+
+  private BriefingResult parseBriefing(byte[] body) {
     try {
       BriefingResponse response = BriefingResponse.fromJSON(body);
       return new BriefingResult.Updated(response.organizationIds(), response.briefs());
@@ -82,39 +96,40 @@ public class AgencyClient {
     }
   }
 
-  /**
-   * Sends one briefing request with whatever bearer token the supplier currently holds.
-   *
-   * @param body The serialized request body, built once and reused across the retry.
-   * @return The response, or the failure it should be reported as.
-   */
-  private Attempt send(byte[] body) {
+  private OrganizationResult parseOrganizations(byte[] body) {
+    try {
+      return new OrganizationResult.Loaded(OrganizationResponse.fromJSON(body).organizations());
+    } catch (RuntimeException e) {
+      return new OrganizationResult.Failed("The Agency returned a malformed organization response: " + e.getMessage());
+    }
+  }
+
+  private HttpRequest.Builder request(String path) {
+    return HttpRequest.newBuilder(URI.create(theAgencyURL + path))
+                      .header("Authorization", "Bearer " + tokens.bearerToken())
+                      .timeout(REQUEST_TIMEOUT);
+  }
+
+  private Attempt send(Supplier<HttpRequest.Builder> requests) {
     HttpRequest request;
     try {
-      request = HttpRequest.newBuilder(URI.create(theAgencyURL + BRIEFING_PATH))
-                           .header("Authorization", "Bearer " + tokens.bearerToken())
-                           .header("Content-Type", "application/json")
-                           .timeout(REQUEST_TIMEOUT)
-                           .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                           .build();
+      request = requests.get().build();
     } catch (RuntimeException e) {
-      return new Attempt.Failure(new BriefingResult.Failed("Unable to build the briefing request: "
-          + e.getMessage(), false));
+      return new Attempt.Failure("Unable to build the request to The Agency: " + e.getMessage(), false);
     }
 
     try {
       return new Attempt.Response(httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray()));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      return new Attempt.Failure(new BriefingResult.Failed("The briefing request was interrupted", false));
+      return new Attempt.Failure("The request to The Agency was interrupted", false);
     } catch (IOException e) {
-      return new Attempt.Failure(new BriefingResult.Failed("The Agency at [" + theAgencyURL + "] is unreachable: "
-          + e.getMessage(), false));
+      return new Attempt.Failure("The Agency at [" + theAgencyURL + "] is unreachable: " + e.getMessage(), false);
     }
   }
 
   private sealed interface Attempt {
-    record Failure(BriefingResult result) implements Attempt {
+    record Failure(String reason, boolean authenticationFailure) implements Attempt {
     }
 
     record Response(HttpResponse<byte[]> response) implements Attempt {
