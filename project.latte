@@ -66,18 +66,50 @@ target(name: "print-dependency-tree", description: "Prints the dependency tree")
   dependency.printFull()
 }
 
-target(name: "bundle", description: "Creates a self-contained runtime bundle", dependsOn: ["build"]) {
-  def bundleDir = "build/bundle"
-  file.prune(dir: bundleDir)
-  file.mkdir(dir: "${bundleDir}/bin")
-  file.mkdir(dir: "${bundleDir}/lib")
-  file.copyFile(file: "src/main/scripts/handler", to: "${bundleDir}/bin/handler")
-  file.copyFile(file: "build/jars/${project.name}-${project.version}.jar", to: "${bundleDir}/lib/${project.name}-${project.version}.jar")
-  dependency.copy(to: "${bundleDir}/lib") {
-    dependencies(group: "compile", transitive: true, fetchSource: false)
-  }
-}
-
 target(name: "run", description: "Runs the Handler in the foreground", dependsOn: ["build"]) {
   java.run(main: "dev.theagencyhq.handler.Main")
+}
+
+// Cross-platform bundling. Each entry maps a Go platform key to the Adoptium API platform names used to fetch
+// the Temurin jmods that jlink cross-links the bundled runtime from.
+bundleJDKs = [
+  "darwin-amd64" : [os: "mac", arch: "x64"],
+  "darwin-arm64" : [os: "mac", arch: "aarch64"],
+  "linux-amd64"  : [os: "linux", arch: "x64"],
+  "linux-arm64"  : [os: "linux", arch: "aarch64"]
+]
+
+// Cross-compiles the tray and links the target platform's Java runtime. The tray is pure Go (no cgo), so every
+// platform builds from any host; build-jre.sh caches the downloaded jmods under build/jdks.
+bundlePrepare = { String goos, String goarch ->
+  def key = goos + "-" + goarch
+  def jdk = bundleJDKs[key]
+  file.mkdir(dir: "build/bundle/tray/" + key)
+  file.execute(cmd: ["env", "CGO_ENABLED=0", "GOOS=" + goos, "GOARCH=" + goarch,
+                     "go", "build", "-C", "src/main/go", "-trimpath", "-ldflags", "-s -w",
+                     "-o", "../../../build/bundle/tray/" + key + "/handler-tray", "."])
+  file.execute(cmd: ["bash", "src/main/packaging/build-jre.sh", goos, goarch, jdk.os, jdk.arch])
+}
+
+target(name: "bundle", description: "Builds the tray, the bundled runtimes, and every platform installer into build/bundle/out", dependsOn: ["build"]) {
+  file.execute(cmd: ["bash", "src/main/packaging/preflight.sh"])
+
+  // Stage the daemon's jars once; every platform package copies from here and build-jre.sh runs jdeps over it
+  file.prune(dir: "build/bundle/lib")
+  file.mkdir(dir: "build/bundle/lib")
+  file.copyFile(file: "build/jars/${project.name}-${project.version}.jar", to: "build/bundle/lib/${project.name}-${project.version}.jar")
+  dependency.copy(to: "build/bundle/lib") {
+    dependencies(group: "compile", transitive: true, fetchSource: false)
+  }
+
+  def version = project.version.toString()
+  ["arm64", "amd64"].each { arch ->
+    bundlePrepare("darwin", arch)
+    file.execute(cmd: ["bash", "src/main/packaging/package-macos.sh", version, arch])
+  }
+
+  ["amd64", "arm64"].each { arch ->
+    bundlePrepare("linux", arch)
+    file.execute(cmd: ["bash", "src/main/packaging/package-linux.sh", version, arch])
+  }
 }

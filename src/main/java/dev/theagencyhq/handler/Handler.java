@@ -9,6 +9,8 @@ import module java.base;
 import dev.theagencyhq.handler.agency.AgencyClient;
 import dev.theagencyhq.handler.brief.BriefStore;
 import dev.theagencyhq.handler.config.HandlerConfig;
+import dev.theagencyhq.handler.tray.TrayFeed;
+import dev.theagencyhq.handler.tray.TrayState;
 
 /**
  * Owns the two service threads, the startup pass, and process lifecycle. Each thread runs its own interval and wakes
@@ -22,19 +24,35 @@ public class Handler {
 
   private final HandlerConfig config;
   private final DistributeThread distributeThread;
+  private final TrayFeed feed;
   private final ReceiveThread receiveThread;
   private final CountDownLatch shutdown = new CountDownLatch(1);
 
   public Handler(HandlerConfig config, AgencyClient agency, BriefStore store, DistributeThread distributeThread) {
+    this(config, agency, store, distributeThread, null);
+  }
+
+  public Handler(HandlerConfig config, AgencyClient agency, BriefStore store, DistributeThread distributeThread,
+                 TrayFeed feed) {
     this.config = config;
     this.distributeThread = distributeThread;
-    this.receiveThread = new ReceiveThread(config, agency, store, distributeThread);
+    this.feed = feed;
+    this.receiveThread = new ReceiveThread(config, agency, store, distributeThread,
+        feed == null ? _ -> {
+        } : feed::received);
   }
 
   /**
    * Runs the startup pass, starts both threads, and blocks until {@link #shutdown()}.
+   *
+   * @param initial The state the tray shows until the startup pass's first briefing result replaces it — the CLI's
+   *     credential preflight verdict.
    */
-  public void daemon() {
+  public void daemon(TrayState initial) {
+    if (feed != null) {
+      feed.start(initial);
+    }
+
     // Run the initial pass
     receiveAndDistribute(false);
 
@@ -62,6 +80,10 @@ public class Handler {
   }
 
   public void shutdown() {
+    if (feed != null) {
+      feed.stop();
+    }
+
     // Receive first, so it stops feeding nudges before the distribute side is told to stop
     receiveThread.shutdown();
     distributeThread.shutdown();

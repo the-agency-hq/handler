@@ -30,15 +30,23 @@ public class ReceiveThread extends IntervalThread {
   private final AgencyClient agency;
   private final HandlerConfig config;
   private final DistributeThread distributeThread;
+  private final Consumer<BriefingResult> observer;
   private final BriefStore store;
 
   public ReceiveThread(HandlerConfig config, AgencyClient agency, BriefStore store,
                        DistributeThread distributeThread) {
+    this(config, agency, store, distributeThread, _ -> {
+    });
+  }
+
+  public ReceiveThread(HandlerConfig config, AgencyClient agency, BriefStore store, DistributeThread distributeThread,
+                       Consumer<BriefingResult> observer) {
     super("handler-receive");
     this.config = config;
     this.agency = agency;
     this.store = store;
     this.distributeThread = distributeThread;
+    this.observer = observer;
   }
 
   /**
@@ -104,7 +112,10 @@ public class ReceiveThread extends IntervalThread {
                                                                            stored.brief().checksum()))
                                          .toList();
 
-    return switch (agency.briefing(versions)) {
+    BriefingResult result = agency.briefing(versions);
+    observer.accept(result);
+
+    return switch (result) {
       case BriefingResult.NotModified _ -> {
         LOG.log(System.Logger.Level.DEBUG, "The Agency reports every version current");
         yield false;

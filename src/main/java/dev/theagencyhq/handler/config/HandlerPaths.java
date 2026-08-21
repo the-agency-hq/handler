@@ -54,4 +54,35 @@ public record HandlerPaths(Path configFile, Path tokensFile, Path storeRoot, Pat
     Path path = Path.of(value.trim());
     return path.isAbsolute() ? path : fallback;
   }
+
+  /**
+   * The XDG configuration base the config file was resolved under — {@code XDG_CONFIG_HOME} when it is set to an
+   * absolute path, otherwise {@code ~/.config}. Derived rather than stored so the Linux uninstall removes the systemd
+   * unit and autostart entry from the same base the installer wrote them to.
+   *
+   * @return The configuration base directory.
+   */
+  public Path configBase() {
+    return configFile.getParent().getParent();
+  }
+
+  /**
+   * The XDG data base the Brief store was resolved under — {@code XDG_DATA_HOME} when it is set to an absolute path,
+   * otherwise {@code ~/.local/share}.
+   *
+   * @return The data base directory.
+   */
+  public Path dataBase() {
+    return storeRoot.getParent().getParent();
+  }
+
+  /**
+   * The Unix domain socket the daemon serves tray status over. Derived from the log location so it lives in the state
+   * directory, where an external tray process can find it without any configuration.
+   *
+   * @return The socket path.
+   */
+  public Path socketFile() {
+    return logFile.getParent().resolve("handler.sock");
+  }
 }

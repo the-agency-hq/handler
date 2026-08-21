@@ -15,6 +15,7 @@ import dev.theagencyhq.handler.apply.LocationApplier;
 import dev.theagencyhq.handler.brief.FileBriefStore;
 import dev.theagencyhq.handler.config.HandlerConfig;
 import dev.theagencyhq.handler.location.LocationScanner;
+import dev.theagencyhq.handler.tray.TrayState;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -90,7 +91,7 @@ public class HandlerTest extends BaseTest {
     agency.script(304, "");
     handler = handler();
 
-    Thread caller = new Thread(handler::daemon, "daemon-caller");
+    Thread caller = new Thread(() -> handler.daemon(TrayState.HEALTHY), "daemon-caller");
     caller.start();
 
     assertTrue(distributeThread.await(1, 5), "The startup pass must run");

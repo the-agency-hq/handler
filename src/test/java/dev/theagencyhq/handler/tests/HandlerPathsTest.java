@@ -31,6 +31,8 @@ public class HandlerPathsTest extends BaseTest {
     Assert.assertEquals(paths.configFile(), Path.of("/home/dev/.config/the-agency-hq/handler.json"));
     Assert.assertEquals(paths.storeRoot(), Path.of("/home/dev/.local/share/the-agency-hq/briefs"));
     Assert.assertEquals(paths.logFile(), Path.of("/home/dev/.local/state/the-agency-hq/handler.log"));
+    Assert.assertEquals(paths.configBase(), Path.of("/home/dev/.config"));
+    Assert.assertEquals(paths.dataBase(), Path.of("/home/dev/.local/share"));
   }
 
   @Test
@@ -50,5 +52,7 @@ public class HandlerPathsTest extends BaseTest {
     Assert.assertEquals(paths.configFile(), Path.of("/etc/xdg/the-agency-hq/handler.json"));
     Assert.assertEquals(paths.storeRoot(), Path.of("/var/data/the-agency-hq/briefs"));
     Assert.assertEquals(paths.logFile(), Path.of("/var/state/the-agency-hq/handler.log"));
+    Assert.assertEquals(paths.configBase(), Path.of("/etc/xdg"));
+    Assert.assertEquals(paths.dataBase(), Path.of("/var/data"));
   }
 }

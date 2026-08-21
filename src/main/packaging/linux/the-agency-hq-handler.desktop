@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=The Agency Handler
+Comment=The Agency Handler system tray
+Exec=%HOME%/.local/lib/the-agency-hq/handler/handler-tray
+Icon=the-agency-hq-handler
+Terminal=false
+Categories=Utility;
+X-GNOME-Autostart-enabled=true

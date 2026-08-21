@@ -24,6 +24,7 @@ import static org.testng.Assert.*;
 
 public class HandlerCLITest extends BaseTest {
   private FakeAgency agency;
+  private Handler handler;
   private ByteArrayOutputStream output;
 
   @Test
@@ -33,26 +34,28 @@ public class HandlerCLITest extends BaseTest {
     expectThrows(AuthenticationException.class, () -> assertEquals(cli("localhost:9015").run("status"), 0));
   }
 
-  @Test
-  public void daemonRefusesToStartWhenTheIssuerCannotBeReached() throws IOException {
+  @Test(timeOut = 15_000)
+  public void daemonStartsWhenTheIssuerCannotBeReached() throws Exception {
     // The credential may well be fine; the Handler simply cannot tell yet, so the advice must be about the network
     tokenStore().store(new Tokens("access", "refresh"));
 
-    assertEquals(cli().run("daemon"), 1);
+    int exit = daemon();
 
     String printed = output.toString();
+    assertEquals(exit, 0);
     assertTrue(printed.contains("could not reach"), "Output was: " + printed);
     assertTrue(printed.contains("network"), "Output was: " + printed);
     assertFalse(printed.contains("handler login"), "Wrong advice when the network is down: " + printed);
   }
 
-  @Test
-  public void daemonRefusesToStartWithoutCredentials() throws IOException {
-    // Starting anyway would look healthy to launchd while receiving nothing, and the developer would find out hours
-    // later from an empty Location instead of now, from a message
-    assertEquals(cli().run("daemon"), 1);
+  @Test(timeOut = 15_000)
+  public void daemonStartsWithoutCredentialsInsteadOfCrashLooping() throws Exception {
+    // Exiting here would only crash-loop under launchd and systemd; the daemon runs, reports LOGGED_OUT, and the
+    // receive loop adopts the tokens a later [handler login] writes
+    int exit = daemon();
 
     String printed = output.toString();
+    assertEquals(exit, 0);
     assertTrue(printed.contains("not logged in"), "Output was: " + printed);
     assertTrue(printed.contains("handler login"), "Output was: " + printed);
   }
@@ -65,11 +68,12 @@ public class HandlerCLITest extends BaseTest {
   }
 
   @Test
-  public void helpNamesInitLoginAndLogout() throws IOException {
+  public void helpNamesInitLoginLogoutAndUninstall() throws IOException {
     assertEquals(cli().run("help"), 0);
     assertTrue(output.toString().contains("init"), "Output was: " + output);
     assertTrue(output.toString().contains("login"), "Output was: " + output);
     assertTrue(output.toString().contains("logout"), "Output was: " + output);
+    assertTrue(output.toString().contains("uninstall"), "Output was: " + output);
   }
 
   @Test
@@ -192,6 +196,13 @@ public class HandlerCLITest extends BaseTest {
   }
 
   @Test
+  public void uninstallIsDispatchedAndAsksForConfirmation() throws IOException {
+    // The wired input never answers, so reaching the cancellation message proves the subcommand reaches Uninstall
+    assertEquals(cli().run("uninstall"), 0);
+    assertTrue(output.toString().contains("cancelled"), "Output was: " + output);
+  }
+
+  @Test
   public void unknownSubcommandExitsOne() throws IOException {
     assertEquals(cli().run("frobnicate"), 1);
   }
@@ -214,7 +225,7 @@ public class HandlerCLITest extends BaseTest {
     LocationApplier applier = new LocationApplier();
     DistributeThread distributeThread = new DistributeThread(config, store, scanner, planner, applier);
     AgencyClient agencyClient = new AgencyClient(config.theAgencyURL(), new StubTokenSupplier("test-token"));
-    Handler handler = new Handler(config, agencyClient, store, distributeThread);
+    handler = new Handler(config, agencyClient, store, distributeThread);
     TokenStore tokenStore = tokenStore();
     // Mirrors Main, which resolves rather than constructs so a bad authURL cannot keep the CLI from running
     AuthConfiguration authConfiguration = new AuthConfiguration(config.authURL());
@@ -225,9 +236,12 @@ public class HandlerCLITest extends BaseTest {
     OrganizationSelector selector = new OrganizationSelector(InputStream.nullInputStream(), printStream,
                                                              new StubTerminal());
     Init init = new Init(agencyClient, selector, base, InputStream.nullInputStream(), printStream);
+    // The null input stream never answers the confirmation, so a dispatched uninstall can only cancel itself
+    Uninstall uninstall = new Uninstall(paths, base, true, _ -> new Uninstall.Execution(0, ""),
+                                        InputStream.nullInputStream(), printStream);
 
-    return new HandlerCLI(paths, config, store, scanner, planner, applier, handler, init, login, tokenStore,
-                          credentials, printStream);
+    return new HandlerCLI(paths, config, store, scanner, planner, applier, handler, init, login, uninstall,
+                          tokenStore, credentials, printStream);
   }
 
   /**
@@ -237,6 +251,31 @@ public class HandlerCLITest extends BaseTest {
     try (ServerSocket socket = new ServerSocket(0)) {
       return socket.getLocalPort();
     }
+  }
+
+  /**
+   * Runs [handler daemon] on its own thread, waits for the preflight verdict to print, proves the daemon stayed up
+   * anyway, then shuts it down.
+   *
+   * @return The exit code.
+   */
+  private int daemon() throws Exception {
+    HandlerCLI cli = cli();
+    AtomicInteger exit = new AtomicInteger(-1);
+    Thread caller = new Thread(() -> exit.set(cli.run("daemon")), "daemon-caller");
+    caller.start();
+
+    long deadline = System.currentTimeMillis() + 10_000;
+    while (output.size() == 0 && System.currentTimeMillis() < deadline) {
+      Thread.sleep(25);
+    }
+
+    assertTrue(caller.isAlive(), "The daemon must keep running despite the failed preflight. Output was: " + output);
+
+    handler.shutdown();
+    caller.join(10_000);
+    assertFalse(caller.isAlive(), "shutdown() must release the daemon");
+    return exit.get();
   }
 
   private Path tokensFile() {

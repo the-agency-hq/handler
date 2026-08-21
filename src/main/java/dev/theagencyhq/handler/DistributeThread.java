@@ -29,18 +29,26 @@ public class DistributeThread extends IntervalThread {
 
   private final LocationApplier applier;
   private final HandlerConfig config;
+  private final ObjIntConsumer<Summary> observer;
   private final BriefPlanner planner;
   private final LocationScanner scanner;
   private final BriefStore store;
 
   public DistributeThread(HandlerConfig config, BriefStore store, LocationScanner scanner, BriefPlanner planner,
                           LocationApplier applier) {
+    this(config, store, scanner, planner, applier, (_, _) -> {
+    });
+  }
+
+  public DistributeThread(HandlerConfig config, BriefStore store, LocationScanner scanner, BriefPlanner planner,
+                          LocationApplier applier, ObjIntConsumer<Summary> observer) {
     super("handler-distribute");
     this.config = config;
     this.store = store;
     this.scanner = scanner;
     this.planner = planner;
     this.applier = applier;
+    this.observer = observer;
   }
 
   public Summary distribute(boolean force) {
@@ -93,6 +101,7 @@ public class DistributeThread extends IntervalThread {
         "applied={0} unchanged={1} conflict={2} failed={3}",
         summary.applied(), summary.unchanged(), summary.conflict(), summary.failed());
 
+    observer.accept(summary, locations.size());
     return summary;
   }
 

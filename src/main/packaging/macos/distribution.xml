@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2026 The Agency HQ
+     SPDX-License-Identifier: MIT
+
+     productbuild distribution for the per-user installer. The domains element permits only the current user's
+     home directory, so Installer.app offers "Install for me only", runs unprivileged, and joins the component's
+     install-location onto the home directory: the app lands in ~/Applications and the postinstall runs as the
+     installing user. -->
+<installer-gui-script minSpecVersion="2">
+  <title>The Agency Handler</title>
+  <domains enable_anywhere="false" enable_currentUserHome="true" enable_localSystem="false"/>
+  <options customize="never"/>
+  <choices-outline>
+    <line choice="default"/>
+  </choices-outline>
+  <choice id="default" title="The Agency Handler">
+    <pkg-ref id="dev.theagencyhq.handler"/>
+  </choice>
+  <pkg-ref id="dev.theagencyhq.handler">handler-component.pkg</pkg-ref>
+</installer-gui-script>

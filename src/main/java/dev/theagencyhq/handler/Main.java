@@ -24,12 +24,14 @@ import dev.theagencyhq.handler.brief.FileBriefStore;
 import dev.theagencyhq.handler.cli.HandlerCLI;
 import dev.theagencyhq.handler.cli.Init;
 import dev.theagencyhq.handler.cli.OrganizationSelector;
+import dev.theagencyhq.handler.cli.Uninstall;
 import dev.theagencyhq.handler.cli.UnixTerminal;
 import dev.theagencyhq.handler.config.ConfigLoader;
 import dev.theagencyhq.handler.config.HandlerConfig;
 import dev.theagencyhq.handler.config.HandlerPaths;
 import dev.theagencyhq.handler.location.LocationScanner;
 import dev.theagencyhq.handler.log.Logging;
+import dev.theagencyhq.handler.tray.TrayFeed;
 
 /**
  * The entry point. The only place that resolves paths from the environment and wires the object graph.
@@ -58,7 +60,9 @@ public final class Main {
       LocationScanner scanner = new LocationScanner(config);
       BriefPlanner planner = new BriefPlanner();
       LocationApplier applier = new LocationApplier();
-      DistributeThread distributeThread = new DistributeThread(config, store, scanner, planner, applier);
+      TrayFeed feed = new TrayFeed(paths.socketFile());
+      DistributeThread distributeThread = new DistributeThread(config, store, scanner, planner, applier,
+                                                               feed::distributed);
       TokenStore tokenStore = new TokenStore(paths.tokensFile());
       AuthConfiguration authConfiguration = new AuthConfiguration(config.authURL());
       OAuthClient oauthClient = new OAuthClient(authConfiguration);
@@ -66,13 +70,16 @@ public final class Main {
       Login login = new Login(authConfiguration, oauthClient, tokenStore, Browsers::open);
       Credentials credentials = new Credentials(tokenStore, oauthClient, new AccessTokens(authConfiguration));
       AgencyClient agency = new AgencyClient(config.theAgencyURL(), tokens);
-      Handler handler = new Handler(config, agency, store, distributeThread);
+      Handler handler = new Handler(config, agency, store, distributeThread, feed);
       Runtime.getRuntime().addShutdownHook(new Thread(handler::shutdown, "handler-shutdown"));
 
       OrganizationSelector selector = new OrganizationSelector(System.in, System.out, new UnixTerminal());
       Init init = new Init(agency, selector, Path.of("").toAbsolutePath(), System.in, System.out);
+      Uninstall uninstall = new Uninstall(paths, Path.of(System.getProperty("user.home")),
+                                          System.getProperty("os.name").toLowerCase().contains("mac"),
+                                          Uninstall::execute, System.in, System.out);
       HandlerCLI cli = new HandlerCLI(paths, config, store, scanner, planner, applier, handler, init, login,
-                                      tokenStore, credentials, System.out);
+                                      uninstall, tokenStore, credentials, System.out);
       System.exit(cli.run(args));
     } catch (Exception e) {
       // Exiting 0 after this message would tell launchd and systemd the daemon shut down cleanly and needs no restart

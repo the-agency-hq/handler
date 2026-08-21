@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Per-user LaunchAgent for the menu bar tray. Limited to Aqua sessions because the tray is useless without a
+     window server; a crash restarts it, quitting from the menu (exit 0) does not. launchd does not expand ~, so
+     %HOME% is stamped with the real home directory by the pkg postinstall. -->
+<dict>
+  <key>Label</key>
+  <string>dev.theagencyhq.handler.tray</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>%HOME%/Applications/The Agency Handler.app/Contents/MacOS/handler-tray</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+</dict>
+</plist>

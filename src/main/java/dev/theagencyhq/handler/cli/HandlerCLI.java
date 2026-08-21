@@ -14,6 +14,7 @@ import dev.theagencyhq.handler.auth.*;
 import dev.theagencyhq.handler.brief.*;
 import dev.theagencyhq.handler.config.*;
 import dev.theagencyhq.handler.location.*;
+import dev.theagencyhq.handler.tray.TrayState;
 
 // Disambiguates java.util.jar.Attributes from java.lang.classfile.Attributes, both pulled in by the module import
 
@@ -24,6 +25,8 @@ import dev.theagencyhq.handler.location.*;
  * @author Brian Pontarelli
  */
 public class HandlerCLI {
+  private static final System.Logger LOG = System.getLogger(HandlerCLI.class.getName());
+
   private final LocationApplier applier;
   private final HandlerConfig config;
   private final Credentials credentials;
@@ -36,10 +39,11 @@ public class HandlerCLI {
   private final LocationScanner scanner;
   private final BriefStore store;
   private final TokenStore tokenStore;
+  private final Uninstall uninstall;
 
   public HandlerCLI(HandlerPaths paths, HandlerConfig config, BriefStore store, LocationScanner scanner,
                     BriefPlanner planner, LocationApplier applier, Handler handler, Init init, Login login,
-                    TokenStore tokenStore, Credentials credentials, PrintStream out) {
+                    Uninstall uninstall, TokenStore tokenStore, Credentials credentials, PrintStream out) {
     this.paths = paths;
     this.config = config;
     this.store = store;
@@ -49,6 +53,7 @@ public class HandlerCLI {
     this.handler = handler;
     this.init = init;
     this.login = login;
+    this.uninstall = uninstall;
     this.tokenStore = tokenStore;
     this.credentials = credentials;
     this.out = out;
@@ -84,6 +89,7 @@ public class HandlerCLI {
       case "init" -> init.run();
       case "login" -> login();
       case "logout" -> logout();
+      case "uninstall" -> uninstall.run(Arrays.asList(args).contains("--yes"));
       case "help", "--help", "-h" -> {
         usage();
         yield 0;
@@ -114,21 +120,29 @@ public class HandlerCLI {
   }
 
   /**
-   * Runs the credential preflight, then the daemon. The preflight is deliberately fatal: a Handler that starts without
-   * a working credential looks healthy to launchd while receiving nothing, and the developer finds out hours later
-   * from an empty Location rather than now, from a message.
+   * Runs the credential preflight, then the daemon. The preflight verdict is not fatal — exiting on a missing
+   * credential just crash-loops under launchd and systemd, invisibly, because their restart policies treat the
+   * non-zero exit as a failure to retry. It only picks the state the tray shows until the first receive cycle
+   * answers. The receive loop re-reads the stored tokens on every 401, so a [handler login] run later is adopted
+   * without a restart.
    *
    * @return The exit code.
    */
   private int daemon() {
+    TrayState initial = TrayState.HEALTHY;
     try {
       credentials.verify();
-    } catch (AuthenticationException e) {
+    } catch (IssuerUnreachableException e) {
+      initial = TrayState.UNREACHABLE;
       out.println(e.getMessage());
-      return 1;
+      LOG.log(System.Logger.Level.WARNING, "Starting without a verified credential. Message was [{0}]", e.getMessage());
+    } catch (AuthenticationException e) {
+      initial = TrayState.LOGGED_OUT;
+      out.println(e.getMessage());
+      LOG.log(System.Logger.Level.WARNING, "Starting without a verified credential. Message was [{0}]", e.getMessage());
     }
 
-    handler.daemon();
+    handler.daemon(initial);
     return 0;
   }
 
@@ -253,6 +267,7 @@ public class HandlerCLI {
           init               Choose an Organization and write agent-location.json in the current directory
           login              Log in to The Agency through your browser
           logout             Discard the stored tokens
+          uninstall [--yes]  Stop the daemon and remove the Handler, leaving other Agency HQ configuration in place
           help               Print this message
           --version          Print the version
         """);

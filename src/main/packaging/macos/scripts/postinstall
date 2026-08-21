@@ -1,0 +1,47 @@
+#!/bin/bash
+# Copyright (c) 2026 The Agency HQ
+# SPDX-License-Identifier: MIT
+#
+# pkg postinstall. The distribution restricts the install to the current user's home directory, so this runs
+# unprivileged as the installing user: it stamps the real home path into the LaunchAgents, bootstraps them, and
+# links the CLI into ~/.local/bin.
+#
+# On an upgrade the old instance is still tearing down when bootout returns — the daemon's JVM takes several
+# seconds to run its shutdown hook — and bootstrapping the same label mid-teardown fails, leaving the daemon
+# unloaded. So each bootout is followed by a wait for the service to leave the domain, and the bootstrap retries.
+set -u
+
+APP="$HOME/Applications/The Agency Handler.app"
+AGENTS="$HOME/Library/LaunchAgents"
+DOMAIN="gui/$(id -u)"
+
+mkdir -p "$HOME/.local/bin" "$AGENTS"
+ln -sf "$APP/Contents/Resources/daemon/bin/handler" "$HOME/.local/bin/handler"
+
+for name in daemon tray; do
+  LABEL="dev.theagencyhq.handler.$name"
+  PLIST="$AGENTS/$LABEL.plist"
+  sed "s|%HOME%|$HOME|g" "$APP/Contents/Resources/LaunchAgents/$LABEL.plist" > "$PLIST"
+
+  launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+  for _ in $(seq 1 60); do
+    launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1 || break
+    sleep 0.5
+  done
+
+  loaded=false
+  for _ in $(seq 1 5); do
+    if launchctl bootstrap "$DOMAIN" "$PLIST" 2>/dev/null; then
+      loaded=true
+      break
+    fi
+    sleep 1
+  done
+
+  if [ "$loaded" != true ]; then
+    # Goes to /var/log/install.log; the install still succeeds, and the agent loads at the next login regardless
+    echo "Unable to bootstrap [$LABEL]. Load it now with: launchctl bootstrap $DOMAIN $PLIST" >&2
+  fi
+done
+
+exit 0
