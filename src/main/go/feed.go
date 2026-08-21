@@ -37,7 +37,7 @@ type changes struct {
 	At       int64 `json:"at"`
 }
 
-// String renders the change counts the same way the AWT tray does: "2 applied, 1 conflict, 3 failed".
+// String renders the change counts as "2 applied, 1 conflict, 3 failed", omitting zero counts.
 func (c *changes) String() string {
 	var parts []string
 	if c.Applied > 0 {

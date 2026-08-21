@@ -27,7 +27,7 @@ func parseState(name string) trayState {
 	}
 }
 
-// tooltip returns the hover text for a state. The three daemon states match the AWT tray verbatim.
+// tooltip returns the hover text for a state.
 func (s trayState) tooltip() string {
 	switch s {
 	case stateHealthy:

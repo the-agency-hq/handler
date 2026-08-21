@@ -1,10 +1,10 @@
 // Copyright (c) 2026 The Agency HQ
 // SPDX-License-Identifier: MIT
 
-// The GoGPU system tray companion for the Handler daemon. It mirrors the AWT tray inside the daemon: the brace logo
-// with a status glyph, a menu of the last cycle's details, and a notification whenever The Agency sent new Briefs or
-// the Handler changed this machine. State arrives over the daemon's Unix domain socket feed; when the daemon is not
-// running the icon shows the empty braces and the tray redials until it comes back.
+// The GoGPU system tray companion for the Handler daemon — the daemon's only UI; the JVM itself stays headless. It
+// shows the brace logo with a status glyph, a menu of the last cycle's details, and a notification whenever The
+// Agency sent new Briefs or the Handler changed this machine. State arrives over the daemon's Unix domain socket
+// feed; when the daemon is not running the icon shows the empty braces and the tray redials until it comes back.
 package main
 
 import (
@@ -19,7 +19,8 @@ import (
 	"github.com/gogpu/systray"
 )
 
-// timestampFormat matches the Java tray's DateTimeFormatter MEDIUM style in the system timezone.
+// timestampFormat renders feed timestamps in Java's DateTimeFormatter MEDIUM style, in the system timezone; the
+// feed sends epoch milliseconds and leaves formatting to this process.
 const timestampFormat = "Jan 2, 2006, 3:04:05 PM"
 
 func main() {
@@ -35,7 +36,7 @@ func main() {
 		item.SetDisabled(true)
 	}
 
-	// The AWT tray has no quit item because the daemon owns it; this process is standalone, so it needs one
+	// This process is standalone with no other clean way to stop it, so the menu carries its own quit item
 	menu.AddSeparator()
 	menu.Add("Quit", func() {
 		tray.Remove()
