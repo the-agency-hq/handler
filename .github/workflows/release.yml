@@ -24,6 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # LoginTest runs the real login flow against this FusionAuth; its @BeforeClass fails the build without it.
+      # Started first so it boots while the JDK and latte are being set up; the wait happens just before the tests.
+      - name: Start FusionAuth
+        working-directory: src/test/fusionauth
+        run: docker compose up -d
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -48,6 +53,20 @@ jobs:
             echo "Tag [${GITHUB_REF_NAME}] does not match the project version [${version}]" >&2
             exit 1
           fi
+      # The compose healthcheck gives up after ~25s, well inside FusionAuth's kickstart boot, so poll the port
+      # LoginTest probes rather than trusting [docker compose up --wait].
+      - name: Wait for FusionAuth
+        working-directory: src/test/fusionauth
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:9015/api/status > /dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "FusionAuth did not answer on http://localhost:9015 within 5 minutes" >&2
+          docker compose logs
+          exit 1
       - name: Java tests
         run: latte test
       - name: Go checks
