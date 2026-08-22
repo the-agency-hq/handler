@@ -35,6 +35,11 @@ jobs:
         run: |
           curl -fsSL https://lattejava.org/cli/install | bash
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      # Latte resolves JDKs from this plugin config, not JAVA_HOME, so point it at the setup-java install.
+      - name: Configure latte JDK
+        run: |
+          mkdir -p ~/.config/latte/plugins
+          echo "25=$JAVA_HOME" > ~/.config/latte/plugins/org.lattejava.plugin.java.properties
       - name: Verify the tag matches the project version
         if: github.ref_type == 'tag'
         run: |
@@ -74,6 +79,11 @@ jobs:
         run: |
           curl -fsSL https://lattejava.org/cli/install | bash
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      # Latte resolves JDKs from this plugin config, not JAVA_HOME, so point it at the setup-java install.
+      - name: Configure latte JDK
+        run: |
+          mkdir -p ~/.config/latte/plugins
+          echo "25=$JAVA_HOME" > ~/.config/latte/plugins/org.lattejava.plugin.java.properties
       - name: Import signing certificates
         if: env.MACOS_CERT_P12 != ''
         run: |
