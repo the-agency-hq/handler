@@ -5,9 +5,7 @@
 package dev.theagencyhq.handler.tray;
 
 import module java.base;
-
-import dev.theagencyhq.handler.DistributeThread;
-import dev.theagencyhq.handler.agency.BriefingResult;
+import module dev.theagencyhq.handler;
 
 /**
  * Serves the daemon's tray state over a Unix domain socket so the external GoGPU tray process can show it without

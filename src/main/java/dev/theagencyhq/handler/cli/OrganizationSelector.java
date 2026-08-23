@@ -5,8 +5,7 @@
 package dev.theagencyhq.handler.cli;
 
 import module java.base;
-
-import dev.theagencyhq.handler.brief.Organization;
+import module dev.theagencyhq.handler;
 
 /**
  * An interactive single-choice menu: the arrow keys move the highlight, Enter confirms, and {@code q} or Ctrl-C

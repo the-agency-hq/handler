@@ -5,33 +5,8 @@
 package dev.theagencyhq.handler;
 
 import module java.base;
-
+import module dev.theagencyhq.handler;
 import java.lang.System.Logger.*;
-
-import dev.theagencyhq.handler.agency.AgencyClient;
-import dev.theagencyhq.handler.apply.BriefPlanner;
-import dev.theagencyhq.handler.apply.LocationApplier;
-import dev.theagencyhq.handler.auth.AccessTokens;
-import dev.theagencyhq.handler.auth.AuthConfiguration;
-import dev.theagencyhq.handler.auth.Browsers;
-import dev.theagencyhq.handler.auth.Credentials;
-import dev.theagencyhq.handler.auth.Login;
-import dev.theagencyhq.handler.auth.OAuthClient;
-import dev.theagencyhq.handler.auth.OAuthTokenSupplier;
-import dev.theagencyhq.handler.auth.TokenStore;
-import dev.theagencyhq.handler.brief.BriefStore;
-import dev.theagencyhq.handler.brief.FileBriefStore;
-import dev.theagencyhq.handler.cli.HandlerCLI;
-import dev.theagencyhq.handler.cli.Init;
-import dev.theagencyhq.handler.cli.OrganizationSelector;
-import dev.theagencyhq.handler.cli.Uninstall;
-import dev.theagencyhq.handler.cli.UnixTerminal;
-import dev.theagencyhq.handler.config.ConfigLoader;
-import dev.theagencyhq.handler.config.HandlerConfig;
-import dev.theagencyhq.handler.config.HandlerPaths;
-import dev.theagencyhq.handler.location.LocationScanner;
-import dev.theagencyhq.handler.log.Logging;
-import dev.theagencyhq.handler.tray.TrayFeed;
 
 /**
  * The entry point. The only place that resolves paths from the environment and wires the object graph.
@@ -62,24 +37,33 @@ public final class Main {
       LocationApplier applier = new LocationApplier();
       TrayFeed feed = new TrayFeed(paths.socketFile());
       DistributeThread distributeThread = new DistributeThread(config, store, scanner, planner, applier,
-                                                               feed::distributed);
+          feed::distributed);
       TokenStore tokenStore = new TokenStore(paths.tokensFile());
       AuthConfiguration authConfiguration = new AuthConfiguration(config.authURL());
       OAuthClient oauthClient = new OAuthClient(authConfiguration);
       OAuthTokenSupplier tokens = new OAuthTokenSupplier(tokenStore, oauthClient);
-      Login login = new Login(authConfiguration, oauthClient, tokenStore, Browsers::open);
       Credentials credentials = new Credentials(tokenStore, oauthClient, new AccessTokens(authConfiguration));
       AgencyClient agency = new AgencyClient(config.theAgencyURL(), tokens);
       Handler handler = new Handler(config, agency, store, distributeThread, feed);
       Runtime.getRuntime().addShutdownHook(new Thread(handler::shutdown, "handler-shutdown"));
 
-      OrganizationSelector selector = new OrganizationSelector(System.in, System.out, new UnixTerminal());
-      Init init = new Init(agency, selector, Path.of("").toAbsolutePath(), System.in, System.out);
-      Uninstall uninstall = new Uninstall(paths, Path.of(System.getProperty("user.home")),
-                                          System.getProperty("os.name").toLowerCase().contains("mac"),
-                                          Uninstall::execute, System.in, System.out);
-      HandlerCLI cli = new HandlerCLI(paths, config, store, scanner, planner, applier, handler, init, login,
-                                      uninstall, tokenStore, credentials, System.out);
+      Path home = Path.of(System.getProperty("user.home"));
+      boolean macOS = System.getProperty("os.name").toLowerCase().contains("mac");
+      PrintStream out = System.out;
+      OrganizationSelector selector = new OrganizationSelector(System.in, out, new UnixTerminal());
+
+      Daemon daemon = new Daemon(handler, credentials, out);
+      Start start = new Start(paths, home, macOS, ProcessCommand::execute, out);
+      Stop stop = new Stop(paths, home, macOS, ProcessCommand::execute, out);
+      Restart restart = new Restart(paths, home, macOS, ProcessCommand::execute, out);
+      Sync sync = new Sync(handler);
+      Status status = new Status(paths, config, store, scanner, planner, applier, tokenStore, credentials, out);
+      Init init = new Init(agency, selector, Path.of("").toAbsolutePath(), System.in, out);
+      Login login = new Login(authConfiguration, oauthClient, tokenStore, Browsers::open, out);
+      Logout logout = new Logout(tokenStore, out);
+      Uninstall uninstall = new Uninstall(paths, home, macOS, ProcessCommand::execute, System.in, out);
+      HandlerCLI cli = new HandlerCLI(daemon, start, stop, restart, sync, status, init, login, logout, uninstall,
+          new Help(out), new Version(out), out);
       System.exit(cli.run(args));
     } catch (Exception e) {
       // Exiting 0 after this message would tell launchd and systemd the daemon shut down cleanly and needs no restart

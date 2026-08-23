@@ -4,9 +4,8 @@
  */
 package dev.theagencyhq.handler.tests;
 
+import module dev.theagencyhq.handler;
 import module org.testng;
-
-import dev.theagencyhq.handler.auth.Tokens;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

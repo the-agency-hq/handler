@@ -5,10 +5,10 @@
 package dev.theagencyhq.handler.agency;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.lattejava.json;
 
 import dev.theagencyhq.handler.agency.internal.BriefingResponseJSON;
-import dev.theagencyhq.handler.brief.Brief;
 
 /**
  * The {@code 200} response body. {@code organizationIds} is the complete entitled set, not a delta — that is what

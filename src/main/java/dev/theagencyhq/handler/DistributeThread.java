@@ -5,16 +5,7 @@
 package dev.theagencyhq.handler;
 
 import module java.base;
-
-import dev.theagencyhq.handler.apply.ApplyResult;
-import dev.theagencyhq.handler.apply.BriefPlanner;
-import dev.theagencyhq.handler.apply.LocationApplier;
-import dev.theagencyhq.handler.apply.LocationPlan;
-import dev.theagencyhq.handler.brief.BriefStore;
-import dev.theagencyhq.handler.brief.StoredBrief;
-import dev.theagencyhq.handler.config.HandlerConfig;
-import dev.theagencyhq.handler.location.Location;
-import dev.theagencyhq.handler.location.LocationScanner;
+import module dev.theagencyhq.handler;
 
 /**
  * The distribute service: find every Location and make it match the Brief its Organization published. Every Location

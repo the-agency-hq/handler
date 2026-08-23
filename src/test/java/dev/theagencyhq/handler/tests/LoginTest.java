@@ -6,19 +6,8 @@ package dev.theagencyhq.handler.tests;
 
 import module java.base;
 import module java.net.http;
+import module dev.theagencyhq.handler;
 import module org.testng;
-
-import dev.theagencyhq.handler.auth.AccessTokens;
-import dev.theagencyhq.handler.auth.AuthConfiguration;
-import dev.theagencyhq.handler.auth.AuthenticationException;
-import dev.theagencyhq.handler.auth.Credentials;
-import dev.theagencyhq.handler.auth.Introspection;
-import dev.theagencyhq.handler.auth.Login;
-import dev.theagencyhq.handler.auth.OAuthClient;
-import dev.theagencyhq.handler.auth.OAuthTokenSupplier;
-import dev.theagencyhq.handler.auth.PKCE;
-import dev.theagencyhq.handler.auth.TokenStore;
-import dev.theagencyhq.handler.auth.Tokens;
 
 import static org.testng.Assert.*;
 
@@ -44,7 +33,7 @@ public class LoginTest extends BaseTest {
 
   @Test
   public void aStoredRefreshTokenBuysANewAccessToken() {
-    login().run(new PrintStream(OutputStream.nullOutputStream()));
+    login().authenticate();
     String original = store().load().accessToken();
 
     OAuthTokenSupplier supplier = new OAuthTokenSupplier(store(), new OAuthClient(new AuthConfiguration(ISSUER)));
@@ -74,7 +63,7 @@ public class LoginTest extends BaseTest {
 
   @Test
   public void aLoggedInHandlerIntrospectsAsValidAndPassesTheDaemonPreflight() {
-    login().run(new PrintStream(OutputStream.nullOutputStream()));
+    login().authenticate();
     String beforeVerify = store().load().accessToken();
 
     Introspection introspection = credentials().introspect();
@@ -100,7 +89,7 @@ public class LoginTest extends BaseTest {
 
   @Test
   public void loginStoresTokensAndTheAccessTokenCarriesTheEmail() {
-    String email = login().run(new PrintStream(OutputStream.nullOutputStream()));
+    String email = login().authenticate();
 
     assertEquals(email, AGENT_EMAIL);
 
@@ -113,8 +102,8 @@ public class LoginTest extends BaseTest {
   @Test
   public void twoLoginsInOneProcessBothSucceed() {
     // The ephemeral port is what makes this work; a fixed port would risk TIME_WAIT on the second bind
-    assertEquals(login().run(new PrintStream(OutputStream.nullOutputStream())), AGENT_EMAIL);
-    assertEquals(login().run(new PrintStream(OutputStream.nullOutputStream())), AGENT_EMAIL);
+    assertEquals(login().authenticate(), AGENT_EMAIL);
+    assertEquals(login().authenticate(), AGENT_EMAIL);
 
     assertTrue(store().load().present());
   }
@@ -152,12 +141,28 @@ public class LoginTest extends BaseTest {
     return new Credentials(store(), new OAuthClient(configuration), new AccessTokens(configuration));
   }
 
-  private Login login() {
+  private DirectLogin login() {
     AuthConfiguration configuration = new AuthConfiguration(ISSUER);
-    return new Login(configuration, new OAuthClient(configuration), store(), new FusionAuthBrowser(AGENT_EMAIL, AGENT_PASSWORD));
+    return new DirectLogin(configuration, new OAuthClient(configuration), store(),
+                           new FusionAuthBrowser(AGENT_EMAIL, AGENT_PASSWORD));
   }
 
   private TokenStore store() {
     return new TokenStore(base.resolve("config/tokens.json"));
+  }
+
+  /**
+   * Widens {@link Login#authenticate()} so the tests can run the flow directly and read the email it returns, rather
+   * than parsing the report the subcommand prints.
+   */
+  private static class DirectLogin extends Login {
+    DirectLogin(AuthConfiguration configuration, OAuthClient client, TokenStore store, Browser browser) {
+      super(configuration, client, store, browser, new PrintStream(OutputStream.nullOutputStream()));
+    }
+
+    @Override
+    public String authenticate() {
+      return super.authenticate();
+    }
   }
 }

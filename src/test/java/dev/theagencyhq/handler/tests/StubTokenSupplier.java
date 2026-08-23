@@ -4,7 +4,7 @@
  */
 package dev.theagencyhq.handler.tests;
 
-import dev.theagencyhq.handler.agency.TokenSupplier;
+import module dev.theagencyhq.handler;
 
 /**
  * A {@link TokenSupplier} whose refresh outcome is scripted, so the retry contract can be tested without an IdP.

@@ -5,8 +5,7 @@
 package dev.theagencyhq.handler.cli;
 
 import module java.base;
-
-import dev.theagencyhq.handler.config.HandlerPaths;
+import module dev.theagencyhq.handler;
 
 /**
  * The {@code uninstall} subcommand. Both platforms install per-user into the home directory, so the uninstall is the
@@ -21,52 +20,16 @@ import dev.theagencyhq.handler.config.HandlerPaths;
  *
  * @author Brian Pontarelli
  */
-public class Uninstall {
+public class Uninstall extends ProcessCommand {
   static final String APP_BUNDLE = "Applications/The Agency Handler.app";
-  static final List<String> LAUNCH_AGENT_LABELS = List.of("dev.theagencyhq.handler.daemon",
-                                                          "dev.theagencyhq.handler.tray");
+  static final List<String> LAUNCH_AGENT_LABELS = List.of(DAEMON_LABEL, TRAY_LABEL);
   static final String PACKAGE_ID = "dev.theagencyhq.handler";
-  static final String SERVICE = "the-agency-hq-handler";
 
-  private final Executor executor;
-  private final Path home;
   private final InputStream in;
-  private final boolean macOS;
-  private final PrintStream out;
-  private final HandlerPaths paths;
 
   public Uninstall(HandlerPaths paths, Path home, boolean macOS, Executor executor, InputStream in, PrintStream out) {
-    this.paths = paths;
-    this.home = home;
-    this.macOS = macOS;
-    this.executor = executor;
+    super(paths, home, macOS, executor, out);
     this.in = in;
-    this.out = out;
-  }
-
-  /**
-   * The real {@link Executor}, which {@code Main} injects as a method reference. Standard error is discarded —
-   * launchctl and pkgutil complain on stderr about work that is already done, and the exit code carries everything the
-   * uninstall needs.
-   *
-   * @param command The command and its arguments.
-   * @return The exit code and captured standard output.
-   * @throws IOException When the command cannot be started or does not finish within thirty seconds.
-   * @throws InterruptedException When the wait for the command is interrupted.
-   */
-  public static Execution execute(String... command) throws IOException, InterruptedException {
-    Process process = new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD).start();
-    String stdout;
-    try (InputStream stream = process.getInputStream()) {
-      stdout = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-    }
-
-    if (!process.waitFor(30, TimeUnit.SECONDS)) {
-      process.destroyForcibly();
-      throw new IOException("[" + String.join(" ", command) + "] timed out");
-    }
-
-    return new Execution(process.exitValue(), stdout);
   }
 
   public int run(boolean yes) {
@@ -192,22 +155,13 @@ public class Uninstall {
   }
 
   /**
-   * Runs one command, converting a failure to launch or finish it into a recorded message rather than an exception.
-   * The exit code is the caller's to interpret.
-   *
-   * @return The execution, or null when the command could not be run at all.
+   * Runs one command whose exit code is ignored, recording only a failure to run it at all.
    */
-  private Execution runProcess(List<String> failures, String... command) {
-    try {
-      return executor.execute(command);
-    } catch (IOException e) {
-      failures.add("Unable to run [" + String.join(" ", command) + "]: " + e.getMessage());
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      failures.add("Unable to run [" + String.join(" ", command) + "]: interrupted");
+  private void runProcess(List<String> failures, String... command) {
+    ExecutionResult result = runProcess(command);
+    if (result.failed()) {
+      failures.add(result.failure());
     }
-
-    return null;
   }
 
   /**
@@ -226,7 +180,7 @@ public class Uninstall {
     runProcess(failures, "pkill", "-x", "handler-tray");
 
     // The unit file goes first so the reload sees it gone
-    delete(failures, paths.configBase().resolve("systemd/user/" + SERVICE + ".service"));
+    delete(failures, unitFile());
     runProcess(failures, "systemctl", "--user", "daemon-reload");
 
     delete(failures, paths.configBase().resolve("autostart/" + SERVICE + ".desktop"));
@@ -248,15 +202,14 @@ public class Uninstall {
    * deleting the bundle takes the runtime's spawn helper with it, after which no new process can be started.
    */
   private void uninstallMacOS(List<String> failures) {
-    Execution id = runProcess(failures, "id", "-u");
-    String uid = id != null && id.exitCode() == 0 ? id.stdout().strip() : null;
-    if (id != null && id.exitCode() != 0) {
-      failures.add("Unable to determine the current uid: [id -u] exited [" + id.exitCode() + "]");
+    ExecutionResult uid = uid();
+    if (uid.failed()) {
+      failures.add(uid.failure());
     }
 
     for (String label : LAUNCH_AGENT_LABELS) {
-      if (uid != null) {
-        runProcess(failures, "launchctl", "bootout", "gui/" + uid + "/" + label);
+      if (!uid.failed()) {
+        runProcess(failures, "launchctl", "bootout", "gui/" + uid.stdout() + "/" + label);
       }
 
       delete(failures, home.resolve(Path.of("Library", "LaunchAgents", label + ".plist")));
@@ -267,22 +220,5 @@ public class Uninstall {
 
     deleteTree(failures, home.resolve(APP_BUNDLE));
     delete(failures, home.resolve(Path.of(".local", "bin", "handler")));
-  }
-
-  /**
-   * One finished command.
-   *
-   * @param exitCode The command's exit code.
-   * @param stdout   Everything the command printed to standard output.
-   */
-  public record Execution(int exitCode, String stdout) {
-  }
-
-  /**
-   * Runs a system command and waits for it — the seam that keeps launchctl and pkgutil out of the tests.
-   */
-  @FunctionalInterface
-  public interface Executor {
-    Execution execute(String... command) throws IOException, InterruptedException;
   }
 }

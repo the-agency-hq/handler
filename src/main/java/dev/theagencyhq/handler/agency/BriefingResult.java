@@ -5,8 +5,7 @@
 package dev.theagencyhq.handler.agency;
 
 import module java.base;
-
-import dev.theagencyhq.handler.brief.Brief;
+import module dev.theagencyhq.handler;
 
 /**
  * The outcome of one briefing request, sealed so no caller can forget a case.

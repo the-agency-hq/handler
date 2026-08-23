@@ -6,8 +6,7 @@ package dev.theagencyhq.handler.tests;
 
 import module java.base;
 import module java.net.http;
-
-import dev.theagencyhq.handler.auth.Browser;
+import module dev.theagencyhq.handler;
 
 /**
  * A {@link Browser} that completes the FusionAuth login over HTTP: it fetches the authorize page, submits the login

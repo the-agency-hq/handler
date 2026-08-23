@@ -5,14 +5,8 @@
 package dev.theagencyhq.handler.tests;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.testng;
-
-import dev.theagencyhq.handler.apply.BriefPlanner;
-import dev.theagencyhq.handler.apply.LocationPlan;
-import dev.theagencyhq.handler.apply.PlannedFile;
-import dev.theagencyhq.handler.brief.Brief;
-import dev.theagencyhq.handler.brief.StoredBrief;
-import dev.theagencyhq.handler.location.Location;
 
 public class BriefPlannerTest extends BaseTest {
   @Test

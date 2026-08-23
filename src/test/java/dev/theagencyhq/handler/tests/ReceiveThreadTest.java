@@ -5,18 +5,10 @@
 package dev.theagencyhq.handler.tests;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.testng;
 
 import java.nio.file.Files;
-
-import dev.theagencyhq.handler.DistributeThread;
-import dev.theagencyhq.handler.ReceiveThread;
-import dev.theagencyhq.handler.agency.AgencyClient;
-import dev.theagencyhq.handler.apply.BriefPlanner;
-import dev.theagencyhq.handler.apply.LocationApplier;
-import dev.theagencyhq.handler.brief.Brief;
-import dev.theagencyhq.handler.config.HandlerConfig;
-import dev.theagencyhq.handler.location.LocationScanner;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

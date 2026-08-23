@@ -32,6 +32,17 @@ public record LocationMarker(@JSONField(asString = true) Version version, String
   }
 
   /**
+   * Creates a marker at the supported format version — the marker {@code handler init} writes.
+   *
+   * @param organizationId The Organization the Location belongs to.
+   * @param missionTypes   The Mission Types the Location accepts, where empty accepts all.
+   * @return The marker.
+   */
+  public static LocationMarker supported(String organizationId, List<String> missionTypes) {
+    return new LocationMarker(new Version(SUPPORTED_MAJOR_VERSION + ".0.0"), organizationId, missionTypes);
+  }
+
+  /**
    * @return The major component of the SemVer format version, or -1 when the marker carried no version at all. An
    *     unparseable version never reaches here — {@code asString} deserialization rejects it, and
    *     {@code LocationScanner} skips the whole marker.

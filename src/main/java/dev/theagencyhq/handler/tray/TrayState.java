@@ -4,7 +4,7 @@
  */
 package dev.theagencyhq.handler.tray;
 
-import dev.theagencyhq.handler.agency.BriefingResult;
+import module dev.theagencyhq.handler;
 
 /**
  * The three states the system tray icon can report.

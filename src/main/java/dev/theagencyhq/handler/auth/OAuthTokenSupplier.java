@@ -5,8 +5,7 @@
 package dev.theagencyhq.handler.auth;
 
 import module java.base;
-
-import dev.theagencyhq.handler.agency.TokenSupplier;
+import module dev.theagencyhq.handler;
 
 /**
  * Serves the stored access token and renews it with the refresh grant when The Agency rejects one.

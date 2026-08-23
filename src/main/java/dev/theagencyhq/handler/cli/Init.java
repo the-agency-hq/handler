@@ -5,13 +5,7 @@
 package dev.theagencyhq.handler.cli;
 
 import module java.base;
-import module org.lattejava.version;
-
-import dev.theagencyhq.handler.agency.AgencyClient;
-import dev.theagencyhq.handler.agency.OrganizationResult;
-import dev.theagencyhq.handler.brief.Organization;
-import dev.theagencyhq.handler.location.LocationMarker;
-import dev.theagencyhq.handler.location.LocationScanner;
+import module dev.theagencyhq.handler;
 
 /**
  * The {@code init} subcommand: asks The Agency which Organizations the user has access to, lets the user pick one,
@@ -78,8 +72,7 @@ public class Init {
       return 1;
     }
 
-    LocationMarker marker = new LocationMarker(new Version(LocationMarker.SUPPORTED_MAJOR_VERSION + ".0.0"),
-                                               organization.id(), missionTypes);
+    LocationMarker marker = LocationMarker.supported(organization.id(), missionTypes);
     try {
       Files.writeString(markerFile, marker.toPrettyString() + "\n");
     } catch (IOException e) {

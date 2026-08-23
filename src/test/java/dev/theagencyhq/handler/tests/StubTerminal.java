@@ -4,7 +4,7 @@
  */
 package dev.theagencyhq.handler.tests;
 
-import dev.theagencyhq.handler.cli.Terminal;
+import module dev.theagencyhq.handler;
 
 /**
  * A {@link Terminal} that only records the mode changes, so interactive commands can run against plain streams.

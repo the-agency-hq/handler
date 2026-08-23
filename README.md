@@ -28,6 +28,9 @@ The `handler` binary is a single executable with subcommands:
 | Command                  | Purpose                                                            |
 |--------------------------|--------------------------------------------------------------------|
 | `handler daemon`         | Run the receive/distribute loop in the foreground.                 |
+| `handler start`          | Start the installed daemon through launchd or systemd.             |
+| `handler stop`           | Stop the daemon until `handler start` or the next login.           |
+| `handler restart`        | Restart the daemon, adopting configuration changes.                |
 | `handler sync [--force]` | Run one receive + distribute pass; `--force` adopts conflicts.     |
 | `handler status`         | Show the state of every Organization and Location on this machine. |
 | `handler init`           | Mark the current directory as a Location for an Organization.      |

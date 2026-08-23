@@ -5,10 +5,8 @@
 package dev.theagencyhq.handler.tests;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.testng;
-
-import dev.theagencyhq.handler.brief.Organization;
-import dev.theagencyhq.handler.cli.OrganizationSelector;
 
 import static org.testng.Assert.*;
 

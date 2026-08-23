@@ -5,20 +5,12 @@
 package dev.theagencyhq.handler.tests;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.testng;
 
 import java.nio.file.Files;
 
-import dev.theagencyhq.handler.DistributeThread;
-import dev.theagencyhq.handler.Handler;
-import dev.theagencyhq.handler.agency.AgencyClient;
-import dev.theagencyhq.handler.apply.BriefPlanner;
-import dev.theagencyhq.handler.apply.LocationApplier;
-import dev.theagencyhq.handler.auth.*;
-import dev.theagencyhq.handler.cli.*;
-import dev.theagencyhq.handler.config.HandlerConfig;
-import dev.theagencyhq.handler.config.HandlerPaths;
-import dev.theagencyhq.handler.location.LocationScanner;
+import dev.theagencyhq.handler.cli.Version;
 
 import static org.testng.Assert.*;
 
@@ -68,12 +60,12 @@ public class HandlerCLITest extends BaseTest {
   }
 
   @Test
-  public void helpNamesInitLoginLogoutAndUninstall() throws IOException {
+  public void helpNamesEverySubcommand() throws IOException {
     assertEquals(cli().run("help"), 0);
-    assertTrue(output.toString().contains("init"), "Output was: " + output);
-    assertTrue(output.toString().contains("login"), "Output was: " + output);
-    assertTrue(output.toString().contains("logout"), "Output was: " + output);
-    assertTrue(output.toString().contains("uninstall"), "Output was: " + output);
+    for (String command : List.of("daemon", "start", "stop", "restart", "sync", "status", "init", "login", "logout",
+                                  "uninstall", "help", "--version")) {
+      assertTrue(output.toString().contains(command), "Missing [" + command + "]. Output was: " + output);
+    }
   }
 
   @Test
@@ -101,6 +93,16 @@ public class HandlerCLITest extends BaseTest {
     output = new ByteArrayOutputStream();
     agency = new FakeAgency();
     agency.start();
+  }
+
+  @Test
+  public void startStopAndRestartAreDispatched() throws IOException {
+    // The test home holds no launchd plist, so reaching the not-installed message proves the dispatch
+    for (String command : List.of("start", "stop", "restart")) {
+      output.reset();
+      assertEquals(cli().run(command), 1);
+      assertTrue(output.toString().contains("not installed"), "Output was: " + output);
+    }
   }
 
   @Test
@@ -230,18 +232,28 @@ public class HandlerCLITest extends BaseTest {
     // Mirrors Main, which resolves rather than constructs so a bad authURL cannot keep the CLI from running
     AuthConfiguration authConfiguration = new AuthConfiguration(config.authURL());
     OAuthClient oauthClient = new OAuthClient(authConfiguration);
-    Login login = new Login(authConfiguration, oauthClient, tokenStore, (url, out) -> { });
     Credentials credentials = new Credentials(tokenStore, oauthClient, new AccessTokens(authConfiguration));
     PrintStream printStream = new PrintStream(output, true);
     OrganizationSelector selector = new OrganizationSelector(InputStream.nullInputStream(), printStream,
                                                              new StubTerminal());
-    Init init = new Init(agencyClient, selector, base, InputStream.nullInputStream(), printStream);
-    // The null input stream never answers the confirmation, so a dispatched uninstall can only cancel itself
-    Uninstall uninstall = new Uninstall(paths, base, true, _ -> new Uninstall.Execution(0, ""),
-                                        InputStream.nullInputStream(), printStream);
 
-    return new HandlerCLI(paths, config, store, scanner, planner, applier, handler, init, login, uninstall,
-                          tokenStore, credentials, printStream);
+    Daemon daemon = new Daemon(handler, credentials, printStream);
+    // The test home holds neither a launchd plist nor a systemd unit, so a dispatched service command can only
+    // report that nothing is installed
+    ProcessCommand.Executor executor = _ -> new ProcessCommand.ExecutionResult(0, "");
+    Start start = new Start(paths, base, true, executor, printStream);
+    Stop stop = new Stop(paths, base, true, executor, printStream);
+    Restart restart = new Restart(paths, base, true, executor, printStream);
+    Sync sync = new Sync(handler);
+    Status status = new Status(paths, config, store, scanner, planner, applier, tokenStore, credentials, printStream);
+    Init init = new Init(agencyClient, selector, base, InputStream.nullInputStream(), printStream);
+    Login login = new Login(authConfiguration, oauthClient, tokenStore, (url, out) -> { }, printStream);
+    Logout logout = new Logout(tokenStore, printStream);
+    // The null input stream never answers the confirmation, so a dispatched uninstall can only cancel itself
+    Uninstall uninstall = new Uninstall(paths, base, true, executor, InputStream.nullInputStream(), printStream);
+
+    return new HandlerCLI(daemon, start, stop, restart, sync, status, init, login, logout, uninstall,
+                          new Help(printStream), new Version(printStream), printStream);
   }
 
   /**

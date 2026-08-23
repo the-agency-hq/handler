@@ -6,10 +6,9 @@ package dev.theagencyhq.handler.log;
 
 import module java.base;
 import module java.logging;
+import module dev.theagencyhq.handler;
 
 import java.util.logging.Formatter;
-
-import dev.theagencyhq.handler.config.HandlerPaths;
 
 /**
  * Configures the JUL backend that sits behind {@code System.Logger}: one line per record to stderr so launchd and

@@ -5,10 +5,10 @@
 package dev.theagencyhq.handler.agency;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.lattejava.json;
 
 import dev.theagencyhq.handler.agency.internal.OrganizationResponseJSON;
-import dev.theagencyhq.handler.brief.Organization;
 
 /**
  * The {@code GET /api/v1/organization} response body: every Organization the caller has access to.

@@ -5,11 +5,7 @@
 package dev.theagencyhq.handler.apply;
 
 import module java.base;
-
-import dev.theagencyhq.handler.brief.BriefFile;
-import dev.theagencyhq.handler.brief.StoredBrief;
-import dev.theagencyhq.handler.location.Location;
-import dev.theagencyhq.handler.location.MissionTypes;
+import module dev.theagencyhq.handler;
 
 /**
  * Turns a Brief plus a Location into an in-memory plan. Writes nothing. Any invalid path or mode fails the whole plan

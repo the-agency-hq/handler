@@ -6,10 +6,8 @@ package dev.theagencyhq.handler.tests;
 
 import module java.base;
 import module java.net.http;
+import module dev.theagencyhq.handler;
 import module org.testng;
-
-import dev.theagencyhq.handler.auth.AuthenticationException;
-import dev.theagencyhq.handler.auth.LoopbackServer;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;

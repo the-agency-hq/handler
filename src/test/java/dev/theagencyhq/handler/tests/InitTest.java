@@ -5,14 +5,10 @@
 package dev.theagencyhq.handler.tests;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.testng;
 
 import java.nio.file.Files;
-
-import dev.theagencyhq.handler.agency.AgencyClient;
-import dev.theagencyhq.handler.cli.Init;
-import dev.theagencyhq.handler.cli.OrganizationSelector;
-import dev.theagencyhq.handler.location.LocationMarker;
 
 import static org.testng.Assert.*;
 

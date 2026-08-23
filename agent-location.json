@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
-  "organizationId": "8d9d1270-6237-4e78-b1b2-05ca9be78d8f",
+  "organizationId": "aeb212f2-86dd-435b-b7bc-4c37da0c4274",
   "missionTypes": [
     "java",
-    "cli"
+    "daemon"
   ]
 }

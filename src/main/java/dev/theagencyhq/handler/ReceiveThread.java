@@ -5,14 +5,7 @@
 package dev.theagencyhq.handler;
 
 import module java.base;
-
-import dev.theagencyhq.handler.agency.AgencyClient;
-import dev.theagencyhq.handler.agency.BriefingResult;
-import dev.theagencyhq.handler.agency.CurrentVersion;
-import dev.theagencyhq.handler.brief.Brief;
-import dev.theagencyhq.handler.brief.BriefFile;
-import dev.theagencyhq.handler.brief.BriefStore;
-import dev.theagencyhq.handler.config.HandlerConfig;
+import module dev.theagencyhq.handler;
 
 /**
  * The receive service: ask The Agency what changed, verify it, and store it. Revocation is only <em>marked</em> here —

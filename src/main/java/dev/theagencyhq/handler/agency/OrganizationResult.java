@@ -5,8 +5,7 @@
 package dev.theagencyhq.handler.agency;
 
 import module java.base;
-
-import dev.theagencyhq.handler.brief.Organization;
+import module dev.theagencyhq.handler;
 
 /**
  * The outcome of one organization-list request, sealed so no caller can forget a case.

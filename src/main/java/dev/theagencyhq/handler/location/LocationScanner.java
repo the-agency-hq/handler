@@ -5,8 +5,7 @@
 package dev.theagencyhq.handler.location;
 
 import module java.base;
-
-import dev.theagencyhq.handler.config.HandlerConfig;
+import module dev.theagencyhq.handler;
 
 /**
  * Finds every Location under the configured start directory. Symbolic links are never followed, which also removes any

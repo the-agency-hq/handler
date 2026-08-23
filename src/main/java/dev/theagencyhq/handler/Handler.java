@@ -5,12 +5,7 @@
 package dev.theagencyhq.handler;
 
 import module java.base;
-
-import dev.theagencyhq.handler.agency.AgencyClient;
-import dev.theagencyhq.handler.brief.BriefStore;
-import dev.theagencyhq.handler.config.HandlerConfig;
-import dev.theagencyhq.handler.tray.TrayFeed;
-import dev.theagencyhq.handler.tray.TrayState;
+import module dev.theagencyhq.handler;
 
 /**
  * Owns the two service threads, the startup pass, and process lifecycle. Each thread runs its own interval and wakes

@@ -2,30 +2,36 @@
  * Copyright (c) 2026 The Agency HQ
  * SPDX-License-Identifier: MIT
  */
-package dev.theagencyhq.handler.auth;
+package dev.theagencyhq.handler.cli;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 
 import org.lattejava.jwt.JWT;
 
 /**
- * Runs the OAuth 2.0 Authorization Code flow with PKCE and stores the resulting tokens.
+ * The {@code login} subcommand: runs the OAuth 2.0 Authorization Code flow with PKCE, stores the resulting tokens,
+ * and reports the outcome.
  *
  * @author Brian Pontarelli
  */
 public class Login {
   private static final Duration BROWSER_TIMEOUT = Duration.ofMinutes(2);
+
   private final AccessTokens accessTokens;
   private final Browser browser;
   private final OAuthClient client;
   private final AuthConfiguration configuration;
+  private final PrintStream out;
   private final TokenStore store;
 
-  public Login(AuthConfiguration configuration, OAuthClient client, TokenStore store, Browser browser) {
+  public Login(AuthConfiguration configuration, OAuthClient client, TokenStore store, Browser browser,
+               PrintStream out) {
     this.configuration = configuration;
     this.client = client;
     this.store = store;
     this.browser = browser;
+    this.out = out;
     this.accessTokens = new AccessTokens(configuration);
   }
 
@@ -35,13 +41,24 @@ public class Login {
     return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
   }
 
+  public int run() {
+    try {
+      String email = authenticate();
+      out.println(email == null ? "Login successful." : "Logged in as [" + email + "]");
+      return 0;
+    } catch (AuthenticationException e) {
+      out.println(e.getMessage());
+      return 1;
+    }
+  }
+
   /**
-   * Runs the flow to completion, writing the tokens on success.
+   * Runs the flow to completion, writing the tokens on success. Protected rather than private so the tests can drive
+   * the flow directly and read the email it returns instead of parsing the printed report.
    *
-   * @param out Where the browser instructions are printed.
    * @return The email on the access token, or null when it carries none.
    */
-  public String run(PrintStream out) {
+  protected String authenticate() {
     PKCE pkce = PKCE.generate();
     String state = randomState();
 

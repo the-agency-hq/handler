@@ -5,9 +5,8 @@
 package dev.theagencyhq.handler.tests;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.testng;
-
-import dev.theagencyhq.handler.auth.PKCE;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;

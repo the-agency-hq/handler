@@ -5,17 +5,8 @@
 package dev.theagencyhq.handler.tests;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.testng;
-
-import dev.theagencyhq.handler.auth.AccessTokens;
-import dev.theagencyhq.handler.auth.AuthConfiguration;
-import dev.theagencyhq.handler.auth.AuthenticationException;
-import dev.theagencyhq.handler.auth.Credentials;
-import dev.theagencyhq.handler.auth.Introspection;
-import dev.theagencyhq.handler.auth.IssuerUnreachableException;
-import dev.theagencyhq.handler.auth.OAuthClient;
-import dev.theagencyhq.handler.auth.TokenStore;
-import dev.theagencyhq.handler.auth.Tokens;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

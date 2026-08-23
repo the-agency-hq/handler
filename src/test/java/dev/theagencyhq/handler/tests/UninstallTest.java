@@ -5,12 +5,10 @@
 package dev.theagencyhq.handler.tests;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.testng;
 
 import java.nio.file.Files;
-
-import dev.theagencyhq.handler.cli.Uninstall;
-import dev.theagencyhq.handler.config.HandlerPaths;
 
 import static org.testng.Assert.*;
 
@@ -45,9 +43,9 @@ public class UninstallTest extends BaseTest {
     installMacOS();
     executor = new RecordingExecutor() {
       @Override
-      public Uninstall.Execution execute(String... command) {
-        Uninstall.Execution execution = super.execute(command);
-        return command[0].equals("launchctl") ? new Uninstall.Execution(3, "") : execution;
+      public ProcessCommand.ExecutionResult execute(String... command) {
+        ProcessCommand.ExecutionResult execution = super.execute(command);
+        return command[0].equals("launchctl") ? new ProcessCommand.ExecutionResult(3, "") : execution;
       }
     };
 
@@ -90,7 +88,7 @@ public class UninstallTest extends BaseTest {
     installLinux();
     executor = new RecordingExecutor() {
       @Override
-      public Uninstall.Execution execute(String... command) {
+      public ProcessCommand.ExecutionResult execute(String... command) {
         String joined = String.join(" ", command);
         assertTrue(Files.exists(home.resolve(".local/lib/the-agency-hq/handler")),
                    "[" + joined + "] ran after the payload was deleted");
@@ -113,7 +111,7 @@ public class UninstallTest extends BaseTest {
     installMacOS();
     executor = new RecordingExecutor() {
       @Override
-      public Uninstall.Execution execute(String... command) {
+      public ProcessCommand.ExecutionResult execute(String... command) {
         assertTrue(Files.exists(home.resolve("Applications/The Agency Handler.app")),
                    "[" + String.join(" ", command) + "] ran after the app bundle was deleted");
         return super.execute(command);
@@ -286,18 +284,4 @@ public class UninstallTest extends BaseTest {
     Files.writeString(paths.socketFile(), "");
   }
 
-  /**
-   * Answers every command with success, [id -u] with uid 501, and records everything that ran.
-   */
-  private static class RecordingExecutor implements Uninstall.Executor {
-    List<String> commands = new ArrayList<>();
-    int exitCode;
-
-    @Override
-    public Uninstall.Execution execute(String... command) {
-      String joined = String.join(" ", command);
-      commands.add(joined);
-      return new Uninstall.Execution(exitCode, joined.equals("id -u") ? "501\n" : "");
-    }
-  }
 }

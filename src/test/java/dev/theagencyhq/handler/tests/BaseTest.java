@@ -5,12 +5,10 @@
 package dev.theagencyhq.handler.tests;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.testng;
 
 import java.nio.file.Files;
-
-import dev.theagencyhq.handler.brief.Brief;
-import dev.theagencyhq.handler.brief.FileBriefStore;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

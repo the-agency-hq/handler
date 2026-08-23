@@ -5,12 +5,8 @@
 package dev.theagencyhq.handler.tests;
 
 import module java.base;
+import module dev.theagencyhq.handler;
 import module org.testng;
-
-import dev.theagencyhq.handler.agency.BriefingResponse;
-import dev.theagencyhq.handler.brief.Brief;
-import dev.theagencyhq.handler.brief.BriefFile;
-import dev.theagencyhq.handler.brief.Organization;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

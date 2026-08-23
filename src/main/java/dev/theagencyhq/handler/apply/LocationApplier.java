@@ -5,8 +5,7 @@
 package dev.theagencyhq.handler.apply;
 
 import module java.base;
-
-import dev.theagencyhq.handler.location.Location;
+import module dev.theagencyhq.handler;
 
 /**
  * Applies a plan to a Location through the manifest. The manifest entry for anything is always written before the thing
