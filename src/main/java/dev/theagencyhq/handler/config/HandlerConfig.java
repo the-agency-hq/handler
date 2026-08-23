@@ -22,7 +22,7 @@ public record HandlerConfig(String startDirectory, List<String> excludeDirectori
   public static final int DEFAULT_DISTRIBUTE_INTERVAL_SECONDS = 60;
   public static final List<String> DEFAULT_EXCLUDE_DIRECTORIES = List.of("build", "node_modules", "output", ".*", "Library", "OrbStack");
   public static final int DEFAULT_RECEIVE_INTERVAL_SECONDS = 300;
-  public static final String DEFAULT_THE_AGENCY_URL = "http://localhost:8080";
+  public static final String DEFAULT_THE_AGENCY_URL = "https://app.theagencyhq.dev";
   public static final int MINIMUM_INTERVAL_SECONDS = 10;
 
   public HandlerConfig {

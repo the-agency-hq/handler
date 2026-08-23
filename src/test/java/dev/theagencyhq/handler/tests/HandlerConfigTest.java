@@ -60,7 +60,9 @@ public class HandlerConfigTest extends BaseTest {
   }
 
   @Test
-  public void theAgencyURLLosesItsTrailingSlash() {
+  public void theAgencyURLDefaultsAndStripsATrailingSlash() {
+    assertEquals(config(null, null, 0, 0).theAgencyURL(), "https://app.theagencyhq.dev");
+    assertEquals(config(null, "  ", 0, 0).theAgencyURL(), "https://app.theagencyhq.dev");
     assertEquals(config(null, "http://localhost:8080/", 0, 0).theAgencyURL(), "http://localhost:8080");
     assertEquals(config(null, "http://localhost:8080", 0, 0).theAgencyURL(), "http://localhost:8080");
   }
