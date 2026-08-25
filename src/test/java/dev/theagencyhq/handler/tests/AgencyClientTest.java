@@ -43,11 +43,11 @@ public class AgencyClientTest extends BaseTest {
   @Test
   public void connectionRefusedIsAFailure() throws IOException {
     int closed;
-    try (ServerSocket socket = new ServerSocket(0)) {
+    try (ServerSocket socket = new ServerSocket(0, 0, InetAddress.getLoopbackAddress())) {
       closed = socket.getLocalPort();
     }
 
-    BriefingResult result = new AgencyClient("http://localhost:" + closed, new StubTokenSupplier("t"))
+    BriefingResult result = new AgencyClient("http://127.0.0.1:" + closed, new StubTokenSupplier("t"))
         .briefing(List.of());
 
     Assert.assertTrue(result instanceof BriefingResult.Failed, "Expected Failed but got " + result);

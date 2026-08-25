@@ -135,11 +135,11 @@ public class CredentialsTest extends BaseTest {
     // Telling a developer to log in when their connection is down sends them to a browser that cannot load either
     store().store(new Tokens("access", "refresh"));
     int closed;
-    try (ServerSocket socket = new ServerSocket(0)) {
+    try (ServerSocket socket = new ServerSocket(0, 0, InetAddress.getLoopbackAddress())) {
       closed = socket.getLocalPort();
     }
 
-    Credentials credentials = credentials("http://localhost:" + closed);
+    Credentials credentials = credentials("http://127.0.0.1:" + closed);
     IssuerUnreachableException e = expectThrows(IssuerUnreachableException.class, credentials::verify);
 
     assertTrue(e.getMessage().contains("could not reach"), "Message was: " + e.getMessage());

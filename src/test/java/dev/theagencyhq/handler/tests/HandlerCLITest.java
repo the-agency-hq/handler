@@ -215,7 +215,7 @@ public class HandlerCLITest extends BaseTest {
    * when it resolves and flaky when it does not. A refused connection is immediate and deterministic.
    */
   private HandlerCLI cli() throws IOException {
-    return cli("http://localhost:" + closedPort());
+    return cli("http://127.0.0.1:" + closedPort());
   }
 
   private HandlerCLI cli(String authURL) throws IOException {
@@ -260,7 +260,7 @@ public class HandlerCLITest extends BaseTest {
    * @return A port that was just released, so connecting to it is refused rather than hanging.
    */
   private int closedPort() throws IOException {
-    try (ServerSocket socket = new ServerSocket(0)) {
+    try (ServerSocket socket = new ServerSocket(0, 0, InetAddress.getLoopbackAddress())) {
       return socket.getLocalPort();
     }
   }

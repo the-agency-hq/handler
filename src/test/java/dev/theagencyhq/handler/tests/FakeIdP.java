@@ -65,14 +65,19 @@ public class FakeIdP implements Closeable {
       }
     };
 
-    server = new HTTPServer().withHandler(handler).withListener(new HTTPListenerConfiguration(0));
+    // Bound to 127.0.0.1 and dialed as 127.0.0.1, never the wildcard plus "localhost". A wildcard [::]:0 bind on macOS
+    // picks its ephemeral port without checking IPv4-only listeners, so the port can already be held by another
+    // process on 127.0.0.1 (IntelliJ keeps a dozen such listeners open) and that process answers the request
+    // instead of this server. The kernel only guarantees the port is free for the exact address it was bound to.
+    server = new HTTPServer().withHandler(handler)
+                             .withListener(new HTTPListenerConfiguration(InetAddress.getLoopbackAddress(), 0));
     server.start();
     port = server.getActualPort();
     return port;
   }
 
   public String url() {
-    return "http://localhost:" + port;
+    return "http://127.0.0.1:" + port;
   }
 
   private record Scripted(int status, String body) {
