@@ -126,14 +126,14 @@ func formatTimestamp(millis *int64) string {
 // notify raises one OS notification. macOS attributes a notification to the app bundle that posts it, so when this
 // process runs from The Agency Handler.app — what `latte tray` assembles — the native path shows the Handler's name
 // and icon. A bare binary never registers with Notification Center, so there osascript posts it instead, attributed
-// to Script Editor.
+// to Script Editor. On Linux the sender name comes from the D-Bus call itself, so notify_linux.go posts it directly.
 func notify(tray *systray.SystemTray, text string) {
 	if runtime.GOOS == "darwin" && !bundled() {
 		script := "display notification \"" + escapeAppleScript(text) + "\" with title \"The Agency Handler\""
 		_ = exec.Command("osascript", "-e", script).Start()
 		return
 	}
-	tray.ShowNotification("The Agency Handler", text)
+	showNotification(tray, "The Agency Handler", text)
 }
 
 // bundled reports whether this process is running from inside a macOS app bundle.
