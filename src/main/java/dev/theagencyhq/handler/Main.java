@@ -59,11 +59,12 @@ public final class Main {
       Sync sync = new Sync(handler);
       Status status = new Status(paths, config, store, scanner, planner, applier, tokenStore, credentials, out);
       Init init = new Init(agency, selector, Path.of("").toAbsolutePath(), System.in, out);
+      InitSource initSource = new InitSource(Path.of("").toAbsolutePath(), out);
       Login login = new Login(authConfiguration, oauthClient, tokenStore, Browsers::open, out);
       Logout logout = new Logout(tokenStore, out);
       Uninstall uninstall = new Uninstall(paths, home, macOS, ProcessCommand::execute, System.in, out);
-      HandlerCLI cli = new HandlerCLI(daemon, start, stop, restart, sync, status, init, login, logout, uninstall,
-          new Help(out), new Version(out), out);
+      HandlerCLI cli = new HandlerCLI(daemon, start, stop, restart, sync, status, init, initSource, login, logout,
+          uninstall, new Help(out), new Version(out), out);
       System.exit(cli.run(args));
     } catch (Exception e) {
       // Exiting 0 after this message would tell launchd and systemd the daemon shut down cleanly and needs no restart

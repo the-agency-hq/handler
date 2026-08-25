@@ -29,6 +29,7 @@ public class Help {
           sync [--force]     Run one receive pass then one distribute pass, then exit
           status             Print resolved paths, stored Organizations, and every Location's state
           init               Choose an Organization and write agent-location.json in the current directory
+          init-source        Scaffold a Brief Source repository in the current directory
           login              Log in to The Agency through your browser
           logout             Discard the stored tokens
           uninstall [--yes]  Stop the daemon and remove the Handler, leaving other Agency HQ configuration in place

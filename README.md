@@ -34,6 +34,7 @@ The `handler` binary is a single executable with subcommands:
 | `handler sync [--force]` | Run one receive + distribute pass; `--force` adopts conflicts.     |
 | `handler status`         | Show the state of every Organization and Location on this machine. |
 | `handler init`           | Mark the current directory as a Location for an Organization.      |
+| `handler init-source`    | Scaffold a Brief Source repository in the current directory.       |
 | `handler login`          | Authenticate with The Agency.                                      |
 | `handler logout`         | Discard stored tokens.                                             |
 | `handler uninstall`      | Remove the Handler and its local state.                            |

@@ -62,8 +62,8 @@ public class HandlerCLITest extends BaseTest {
   @Test
   public void helpNamesEverySubcommand() throws IOException {
     assertEquals(cli().run("help"), 0);
-    for (String command : List.of("daemon", "start", "stop", "restart", "sync", "status", "init", "login", "logout",
-                                  "uninstall", "help", "--version")) {
+    for (String command : List.of("daemon", "start", "stop", "restart", "sync", "status", "init", "init-source", "login",
+                                  "logout", "uninstall", "help", "--version")) {
       assertTrue(output.toString().contains(command), "Missing [" + command + "]. Output was: " + output);
     }
   }
@@ -73,6 +73,12 @@ public class HandlerCLITest extends BaseTest {
     // Nothing scripted, so the FakeAgency answers 500 — this only proves the subcommand reaches Init
     assertEquals(cli().run("init"), 1);
     assertTrue(output.toString().contains("status [500]"), "Output was: " + output);
+  }
+
+  @Test
+  public void initSourceIsDispatchedAndScaffoldsTheCurrentDirectory() throws IOException {
+    assertEquals(cli().run("init-source"), 0);
+    assertTrue(Files.exists(base.resolve(InitSource.SETTINGS_FILENAME)), "Output was: " + output);
   }
 
   @Test
@@ -247,13 +253,14 @@ public class HandlerCLITest extends BaseTest {
     Sync sync = new Sync(handler);
     Status status = new Status(paths, config, store, scanner, planner, applier, tokenStore, credentials, printStream);
     Init init = new Init(agencyClient, selector, base, InputStream.nullInputStream(), printStream);
+    InitSource initSource = new InitSource(base, printStream);
     Login login = new Login(authConfiguration, oauthClient, tokenStore, (url, out) -> { }, printStream);
     Logout logout = new Logout(tokenStore, printStream);
     // The null input stream never answers the confirmation, so a dispatched uninstall can only cancel itself
     Uninstall uninstall = new Uninstall(paths, base, true, executor, InputStream.nullInputStream(), printStream);
 
-    return new HandlerCLI(daemon, start, stop, restart, sync, status, init, login, logout, uninstall,
-                          new Help(printStream), new Version(printStream), printStream);
+    return new HandlerCLI(daemon, start, stop, restart, sync, status, init, initSource, login, logout,
+                          uninstall, new Help(printStream), new Version(printStream), printStream);
   }
 
   /**

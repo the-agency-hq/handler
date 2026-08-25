@@ -16,6 +16,7 @@ public class HandlerCLI {
   private final Daemon daemon;
   private final Help help;
   private final Init init;
+  private final InitSource initSource;
   private final Login login;
   private final Logout logout;
   private final PrintStream out;
@@ -28,7 +29,8 @@ public class HandlerCLI {
   private final Version version;
 
   public HandlerCLI(Daemon daemon, Start start, Stop stop, Restart restart, Sync sync, Status status, Init init,
-                    Login login, Logout logout, Uninstall uninstall, Help help, Version version, PrintStream out) {
+                    InitSource initSource, Login login, Logout logout, Uninstall uninstall, Help help, Version version,
+                    PrintStream out) {
     this.daemon = daemon;
     this.start = start;
     this.stop = stop;
@@ -36,6 +38,7 @@ public class HandlerCLI {
     this.sync = sync;
     this.status = status;
     this.init = init;
+    this.initSource = initSource;
     this.login = login;
     this.logout = logout;
     this.uninstall = uninstall;
@@ -50,6 +53,7 @@ public class HandlerCLI {
       case "daemon" -> daemon.run();
       case "help", "--help", "-h" -> help.run();
       case "init" -> init.run();
+      case "init-source" -> initSource.run();
       case "login" -> login.run();
       case "logout" -> logout.run();
       case "restart" -> restart.run();
