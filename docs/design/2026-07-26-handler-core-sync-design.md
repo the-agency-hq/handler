@@ -203,7 +203,7 @@ Environment variables are read *only* in `HandlerPaths.fromEnvironment()`. Every
 ```json
 {
   "startDirectory": "~",
-  "excludeDirectories": ["build", "node_modules", "output", ".*"],
+  "excludeDirectories": ["build", "node_modules", "output", ".*", "Library", "OrbStack", "Desktop", "Documents", "Downloads", "Volumes"],
   "theAgencyURL": "http://localhost:8080",
   "accessToken": "",
   "refreshToken": "",
@@ -226,6 +226,8 @@ A missing config file is not an error: `ConfigLoader` writes the default file (m
 ### 6.3 Exclusion matching
 
 Each entry in `excludeDirectories` is a glob matched against a directory's **name only**, via `FileSystems.getDefault().getPathMatcher("glob:" + pattern)`. `.*` therefore excludes every dot-directory, `node_modules` excludes exactly that name. Symbolic links are never followed, which also removes any possibility of a traversal cycle.
+
+The default list also skips every directory macOS gates behind a "Files and Folders" permission prompt — `Desktop`, `Documents`, `Downloads`, and removable or network volumes under `/Volumes` — plus `Library`, which needs Full Disk Access. Without this, the first scan would pop a system dialog for each of them. Linux has no equivalent prompts for a native daemon. A developer who keeps Locations in one of these directories removes the entry from their `handler.json`.
 
 ## 7. Receive path
 

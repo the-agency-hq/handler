@@ -15,7 +15,7 @@ public class HandlerConfigTest extends BaseTest {
   @Test
   public void absentExcludeDirectoriesBecomeTheDefaults() {
     HandlerConfig config = config(null, null, 0, 0);
-    assertEquals(config.excludeDirectories(), List.of("build", "node_modules", "output", ".*", "Library", "OrbStack"));
+    assertEquals(config.excludeDirectories(), List.of("build", "node_modules", "output", ".*", "Library", "OrbStack", "Desktop", "Documents", "Downloads", "Volumes"));
   }
 
   @Test

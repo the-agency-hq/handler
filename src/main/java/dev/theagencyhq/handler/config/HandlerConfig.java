@@ -20,7 +20,15 @@ public record HandlerConfig(String startDirectory, List<String> excludeDirectori
                             String authURL, int receiveIntervalSeconds, int distributeIntervalSeconds) {
   public static final String DEFAULT_AUTH_URL = "https://auth.theagencyhq.dev";
   public static final int DEFAULT_DISTRIBUTE_INTERVAL_SECONDS = 60;
-  public static final List<String> DEFAULT_EXCLUDE_DIRECTORIES = List.of("build", "node_modules", "output", ".*", "Library", "OrbStack");
+  /**
+   * Matched against directory names only. Besides build output and dot-directories, this skips every directory that
+   * macOS gates behind a "Files and Folders" permission prompt (Desktop, Documents, Downloads, and removable or
+   * network volumes under /Volumes) plus Library, which is only readable with Full Disk Access. Linux has no
+   * equivalent prompts for a native daemon, so nothing here is Linux-specific.
+   */
+  public static final List<String> DEFAULT_EXCLUDE_DIRECTORIES = List.of("build", "node_modules", "output", ".*", "Library",
+                                                                         "OrbStack", "Desktop", "Documents", "Downloads",
+                                                                         "Volumes");
   public static final int DEFAULT_RECEIVE_INTERVAL_SECONDS = 300;
   public static final String DEFAULT_THE_AGENCY_URL = "https://app.theagencyhq.dev";
   public static final int MINIMUM_INTERVAL_SECONDS = 10;
