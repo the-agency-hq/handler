@@ -36,7 +36,8 @@ public final class Main {
       BriefPlanner planner = new BriefPlanner();
       LocationApplier applier = new LocationApplier();
       TrayFeed feed = new TrayFeed(paths.socketFile());
-      DistributeThread distributeThread = new DistributeThread(config, store, scanner, planner, applier,
+      StateStore stateStore = new StateStore(paths.stateFile());
+      DistributeThread distributeThread = new DistributeThread(config, store, scanner, planner, applier, stateStore,
           feed::distributed);
       TokenStore tokenStore = new TokenStore(paths.tokensFile());
       AuthConfiguration authConfiguration = new AuthConfiguration(config.authURL());
@@ -58,7 +59,7 @@ public final class Main {
       Stop stop = new Stop(paths, home, macOS, ProcessCommand::execute, out);
       Restart restart = new Restart(paths, home, macOS, ProcessCommand::execute, out);
       Sync sync = new Sync(handler);
-      Status status = new Status(paths, config, store, scanner, planner, applier, tokenStore, credentials, out);
+      Status status = new Status(paths, config, store, stateStore, planner, applier, tokenStore, credentials, out);
       Init init = new Init(agency, selector, Path.of("").toAbsolutePath(), System.in, out);
       InitSource initSource = new InitSource(Path.of("").toAbsolutePath(), out);
       Login login = new Login(authConfiguration, oauthClient, tokenStore, Browsers::open, out);

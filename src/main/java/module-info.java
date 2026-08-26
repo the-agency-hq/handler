@@ -19,5 +19,6 @@ module dev.theagencyhq.handler {
   exports dev.theagencyhq.handler.config;
   exports dev.theagencyhq.handler.location;
   exports dev.theagencyhq.handler.log;
+  exports dev.theagencyhq.handler.state;
   exports dev.theagencyhq.handler.tray;
 }

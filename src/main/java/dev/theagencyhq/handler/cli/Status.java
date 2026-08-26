@@ -8,30 +8,34 @@ import module java.base;
 import module dev.theagencyhq.handler;
 
 /**
- * The {@code status} subcommand: prints the resolved paths, the credential state, every stored Organization, and
- * every Location's state. Everything is recomputed from disk rather than read from persisted state, so there is
- * nothing to go stale.
+ * The {@code status} subcommand: prints the resolved paths, the credential state, every stored Organization, and what
+ * the next distribute cycle will do at every Location the daemon found on its last run. The Locations come from the
+ * state file the daemon writes, so this command never scans the start directory. Each Location is inspected with a
+ * pure read; nothing on disk is changed.
  *
  * @author Brian Pontarelli
  */
 public class Status {
+  private static final DateTimeFormatter LAST_RUN = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                                                                     .withZone(ZoneId.systemDefault());
+
   private final LocationApplier applier;
   private final HandlerConfig config;
   private final Credentials credentials;
   private final PrintStream out;
   private final HandlerPaths paths;
   private final BriefPlanner planner;
-  private final LocationScanner scanner;
+  private final StateStore stateStore;
   private final BriefStore store;
   private final TokenStore tokenStore;
 
-  public Status(HandlerPaths paths, HandlerConfig config, BriefStore store, LocationScanner scanner,
+  public Status(HandlerPaths paths, HandlerConfig config, BriefStore store, StateStore stateStore,
                 BriefPlanner planner, LocationApplier applier, TokenStore tokenStore, Credentials credentials,
                 PrintStream out) {
     this.paths = paths;
     this.config = config;
     this.store = store;
-    this.scanner = scanner;
+    this.stateStore = stateStore;
     this.planner = planner;
     this.applier = applier;
     this.tokenStore = tokenStore;
@@ -40,14 +44,15 @@ public class Status {
   }
 
   public int run() {
-    out.println("configFile   " + paths.configFile());
-    out.println("tokensFile   " + paths.tokensFile());
-    out.println("storeRoot    " + paths.storeRoot());
-    out.println("logFile      " + paths.logFile());
-    out.println("theAgencyURL " + config.theAgencyURL());
-    out.println("authURL      " + config.authURL());
-    out.println("accessToken  " + accessTokenState());
-    out.println("introspect   " + introspectState());
+    line("Config file:", paths.configFile());
+    line("Tokens file:", paths.tokensFile());
+    line("Store root:", paths.storeRoot());
+    line("Log file:", paths.logFile());
+    line("State file:", paths.stateFile());
+    line("The Agency URL:", config.theAgencyURL());
+    line("Auth URL:", config.authURL());
+    line("Access token:", accessTokenState());
+    line("Introspect:", introspectState());
     out.println();
 
     out.println("Organizations");
@@ -65,17 +70,7 @@ public class Status {
     }
 
     out.println();
-    out.println("Locations");
-    List<Location> locations = scanner.scan();
-    if (locations.isEmpty()) {
-      out.println("  (none)");
-      return 0;
-    }
-
-    for (Location location : locations) {
-      out.println("  " + location.root() + "  " + describe(location));
-    }
-
+    locations();
     return 0;
   }
 
@@ -92,21 +87,41 @@ public class Status {
     }
   }
 
+  /**
+   * Works out what the next distribute cycle will do at one Location. This mirrors the plan selection in
+   * {@code DistributeThread.applyTo}, then asks the applier for a read-only inspection instead of applying.
+   *
+   * @param location The Location as the daemon last recorded it.
+   * @return A short description for the developer.
+   */
   private String describe(Location location) {
-    if (store.latest(location.organizationId()).isEmpty() && !store.revoked(location.organizationId())) {
-      return "no brief";
+    if (!Files.isRegularFile(location.root().resolve(LocationScanner.MARKER_FILENAME), LinkOption.NOFOLLOW_LINKS)) {
+      return "Removed";
     }
 
-    LocationPlan plan = planFor(location);
-    if (plan == null) {
-      return "invalid brief";
+    String organizationId = location.organizationId();
+    Optional<StoredBrief> stored = store.latest(organizationId);
+    boolean revoked = store.revoked(organizationId);
+    if (stored.isEmpty() && !revoked) {
+      return "No Brief";
+    }
+
+    LocationPlan plan;
+    if (stored.isPresent() && !revoked) {
+      try {
+        plan = planner.plan(stored.get(), location);
+      } catch (BriefPlanner.InvalidPlanException e) {
+        return "Invalid Brief: " + e.getMessage();
+      }
+    } else {
+      plan = LocationPlan.EMPTY;
     }
 
     return switch (applier.inspect(location, plan)) {
-      case CHANGED -> "changed";
-      case CONFLICT -> "conflict";
-      case UNCHANGED -> "unchanged";
-      case UNREADABLE -> "unreadable";
+      case CHANGED -> revoked ? "Pending removal" : "Pending new version";
+      case CONFLICT -> "Skipped due to conflicts";
+      case UNCHANGED -> "Up-to-date";
+      case UNREADABLE -> "Unreadable";
     };
   }
 
@@ -129,16 +144,40 @@ public class Status {
     }
   }
 
-  private LocationPlan planFor(Location location) {
-    Optional<StoredBrief> stored = store.latest(location.organizationId());
-    if (stored.isEmpty() || store.revoked(location.organizationId())) {
-      return LocationPlan.EMPTY;
+  private void line(String label, Object value) {
+    out.println(String.format("%-16s %s", label, value));
+  }
+
+  private void locations() {
+    Optional<HandlerState> loaded;
+    try {
+      loaded = stateStore.load();
+    } catch (StateStore.UnreadableStateException e) {
+      out.println("Locations");
+      out.println("  Unknown. The state file could not be read (" + e.getMessage() + "). This status output will"
+          + " update the next time the daemon runs.");
+      return;
     }
 
-    try {
-      return planner.plan(stored.get(), location);
-    } catch (BriefPlanner.InvalidPlanException e) {
-      return null;
+    if (loaded.isEmpty()) {
+      out.println("Locations");
+      out.println("  Unknown. This status output will update the next time the daemon runs.");
+      return;
+    }
+
+    HandlerState state = loaded.get();
+    out.println(state.lastRun() == null ? "Locations"
+                                        : "Locations (last daemon run " + LAST_RUN.format(state.lastRun()) + ")");
+    if (state.locations().isEmpty()) {
+      out.println("  (none)");
+      return;
+    }
+
+    for (LocationEntry entry : state.locations()) {
+      out.println("  " + entry.root());
+      out.println("    Mission types: " + (entry.missionTypes().isEmpty() ? "all"
+                                                                           : String.join(", ", entry.missionTypes())));
+      out.println("    Status:        " + describe(entry.toLocation()));
     }
   }
 }

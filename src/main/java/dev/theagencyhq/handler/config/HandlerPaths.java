@@ -85,4 +85,14 @@ public record HandlerPaths(Path configFile, Path tokensFile, Path storeRoot, Pat
   public Path socketFile() {
     return logFile.getParent().resolve("handler.sock");
   }
+
+  /**
+   * The file the daemon writes after every distribute cycle and {@code handler status} reads. Derived from the log
+   * location so it lives in the state directory.
+   *
+   * @return The state file path.
+   */
+  public Path stateFile() {
+    return logFile.getParent().resolve("state.json");
+  }
 }

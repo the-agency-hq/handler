@@ -27,7 +27,7 @@ public class Help {
           stop               Stop the daemon until [handler start] or the next login
           restart            Restart the daemon, adopting configuration changes
           sync [--force]     Run one receive pass then one distribute pass, then exit
-          status             Print resolved paths, stored Organizations, and every Location's state
+          status             Print resolved paths, stored Organizations, and what the next daemon run will do at each Location
           init               Choose an Organization and write agent-location.json in the current directory
           init-source        Scaffold a Brief Source repository in the current directory
           login              Log in to The Agency through your browser

@@ -112,22 +112,34 @@ public class HandlerCLITest extends BaseTest {
   }
 
   @Test
-  public void statusNamesEveryLocationAndItsStateAndWritesNothing() throws IOException {
-    store.store(brief("42", 1, file(".claude/a.md", "alpha")));
-    Path location = location("app", "42");
+  public void statusNamesEveryLocationFromTheStateFileAndWritesNothing() throws IOException {
+    agency.script(200, response("42", 1, file(".claude/a.md", "alpha")));
+    Path location = location("app", "42", "code", "docs");
     Path orphan = location("orphan", "999");
+    Path gone = location("gone", "42");
+    assertEquals(cli().run("sync"), 0);
 
+    // Everything after the sync is what the next distribute will act on, and the state file does not know about it
+    store.store(brief("42", 2, file(".claude/a.md", "beta")));
+    Files.delete(gone.resolve("agent-location.json"));
+    Path unscanned = location("unscanned", "42");
+
+    output.reset();
     assertEquals(cli().run("status"), 0);
 
     String printed = output.toString();
-    assertTrue(printed.contains(location.toString()), "Output was: " + printed);
-    assertTrue(printed.contains("changed"), "Output was: " + printed);
-    assertTrue(printed.contains(orphan.toString()), "Output was: " + printed);
-    assertTrue(printed.contains("no brief"), "Output was: " + printed);
+    assertTrue(printed.contains("Locations (last daemon run "), "Output was: " + printed);
+    assertTrue(printed.contains("  " + location + "\n    Mission types: code, docs\n    Status:        Pending new version\n"),
+               "Output was: " + printed);
+    assertTrue(printed.contains("  " + orphan + "\n    Mission types: all\n    Status:        No Brief\n"),
+               "Output was: " + printed);
+    assertTrue(printed.contains("  " + gone + "\n    Mission types: all\n    Status:        Removed\n"),
+               "Output was: " + printed);
+    assertFalse(printed.contains(unscanned.toString()), "Status never scans. Output was: " + printed);
 
     // A pure read - status must not bootstrap a manifest
-    assertFalse(Files.exists(location.resolve(".handler-manifest")));
     assertFalse(Files.exists(orphan.resolve(".handler-manifest")));
+    assertFalse(Files.exists(unscanned.resolve(".handler-manifest")));
   }
 
   @Test
@@ -137,41 +149,72 @@ public class HandlerCLITest extends BaseTest {
     Files.writeString(tokensFile(), "{not json at all");
 
     assertEquals(cli().run("status"), 0);
-    assertTrue(output.toString().contains("accessToken  unreadable"), "Output was: " + output);
+    assertTrue(output.toString().contains("Access token:    unreadable"), "Output was: " + output);
   }
 
   @Test
-  public void statusReportsBothUnchangedAndConflictStates() throws IOException {
+  public void statusReportsAnUnreadableStateFileRatherThanFailing() throws IOException {
+    Files.createDirectories(base.resolve("state.json").getParent());
+    Files.writeString(base.resolve("state.json"), "{not json at all");
+
+    assertEquals(cli().run("status"), 0);
+    String printed = output.toString();
+    assertTrue(printed.contains("Locations\n  Unknown. The state file could not be read ("), "Output was: " + printed);
+    assertTrue(printed.contains("This status output will update the next time the daemon runs."),
+               "Output was: " + printed);
+  }
+
+  @Test
+  public void statusReportsBothUpToDateAndConflictStates() throws IOException {
     // Store "43" only AFTER the sync below: ReceiveTask treats a briefing response's organizationIds as
     // authoritative and revokes (then purges, with no Location yet to defer it) anything already stored that the
     // response omits - storing "43" first would have it revoked-and-purged out from under this test by "sync".
+    // Its Location has to exist before the sync, though, or the state file will not list it.
     agency.script(200, response("42", 1, file(".claude/a.md", "alpha")));
     Path unchanged = location("applied", "42");
-    assertEquals(cli().run("sync"), 0, "Only the clean Location exists at this point");
+    Path conflicted = location("conflicted", "43");
+    assertEquals(cli().run("sync"), 0, "The conflicted Location has no Brief yet, so it is skipped cleanly");
 
     store.store(brief("43", 1, file(".claude/a.md", "alpha")));
-    Path conflicted = location("conflicted", "43");
     Files.createDirectories(conflicted.resolve(".claude"));
     Files.writeString(conflicted.resolve(".claude/a.md"), "unmanaged");
+
+    output.reset();
+    assertEquals(cli().run("status"), 0);
+
+    String printed = output.toString();
+    assertTrue(printed.contains("  " + unchanged + "\n    Mission types: all\n    Status:        Up-to-date\n"),
+               "Output was: " + printed);
+    assertTrue(printed.contains("  " + conflicted + "\n    Mission types: all\n    Status:        Skipped due to conflicts\n"),
+               "Output was: " + printed);
+  }
+
+  @Test
+  public void statusWithoutAStateFileReportsUnknownLocations() throws IOException {
+    Path location = location("app", "42");
 
     assertEquals(cli().run("status"), 0);
 
     String printed = output.toString();
-    assertTrue(printed.contains("  " + unchanged + "  unchanged"), "Output was: " + printed);
-    assertTrue(printed.contains("  " + conflicted + "  conflict"), "Output was: " + printed);
+    assertTrue(printed.contains("Config file:     " + base.resolve("handler.json")), "Output was: " + printed);
+    assertTrue(printed.contains("State file:      " + base.resolve("state.json")), "Output was: " + printed);
+    assertTrue(printed.contains("Organizations\n  (none)\n"), "Output was: " + printed);
+    assertTrue(printed.contains("Locations\n  Unknown. This status output will update the next time the daemon runs.\n"),
+               "Output was: " + printed);
+    assertFalse(printed.contains(location.toString()), "Status never scans. Output was: " + printed);
   }
 
   @Test
   public void statusReportsTokenPresenceFromTheTokenStoreAndNeverPrintsIt() throws IOException {
     assertEquals(cli().run("status"), 0);
-    assertTrue(output.toString().contains("accessToken  absent"), "Output was: " + output);
+    assertTrue(output.toString().contains("Access token:    absent"), "Output was: " + output);
 
     output.reset();
     tokenStore().store(new Tokens("super-secret-token", "refresh"));
 
     assertEquals(cli().run("status"), 0);
     String printed = output.toString();
-    assertTrue(printed.contains("accessToken  present"), "Output was: " + printed);
+    assertTrue(printed.contains("Access token:    present"), "Output was: " + printed);
     assertFalse(printed.contains("super-secret-token"), "The token must never be printed. Output was: " + printed);
   }
 
@@ -231,7 +274,8 @@ public class HandlerCLITest extends BaseTest {
     LocationScanner scanner = new LocationScanner(config);
     BriefPlanner planner = new BriefPlanner();
     LocationApplier applier = new LocationApplier();
-    DistributeThread distributeThread = new DistributeThread(config, store, scanner, planner, applier);
+    StateStore stateStore = new StateStore(paths.stateFile());
+    DistributeThread distributeThread = new DistributeThread(config, store, scanner, planner, applier, stateStore);
     AgencyClient agencyClient = new AgencyClient(config.theAgencyURL(), new StubTokenSupplier("test-token"));
     handler = new Handler(config, agencyClient, store, distributeThread);
     TokenStore tokenStore = tokenStore();
@@ -251,7 +295,8 @@ public class HandlerCLITest extends BaseTest {
     Stop stop = new Stop(paths, base, true, executor, printStream);
     Restart restart = new Restart(paths, base, true, executor, printStream);
     Sync sync = new Sync(handler);
-    Status status = new Status(paths, config, store, scanner, planner, applier, tokenStore, credentials, printStream);
+    Status status = new Status(paths, config, store, stateStore, planner, applier, tokenStore, credentials,
+                               printStream);
     Init init = new Init(agencyClient, selector, base, InputStream.nullInputStream(), printStream);
     InitSource initSource = new InitSource(base, printStream);
     Login login = new Login(authConfiguration, oauthClient, tokenStore, (url, out) -> { }, printStream);

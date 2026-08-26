@@ -169,7 +169,7 @@ public class HandlerTest extends BaseTest {
   private Handler handler(TokenWatcher watcher) throws IOException {
     HandlerConfig config = new HandlerConfig(locations().toString(), null, agency.url(), null, 3600, 3600);
     distributeThread = new CountingDistributeThread(config, store, new LocationScanner(config), new BriefPlanner(),
-                                                    new LocationApplier());
+                                                    new LocationApplier(), new StateStore(base.resolve("state.json")));
     return new Handler(config, new AgencyClient(config.theAgencyURL(), new StubTokenSupplier("test-token")), store,
                        distributeThread, null, watcher);
   }
@@ -183,8 +183,8 @@ public class HandlerTest extends BaseTest {
     private final CountDownLatch started = new CountDownLatch(1);
 
     CountingDistributeThread(HandlerConfig config, FileBriefStore store, LocationScanner scanner, BriefPlanner planner,
-                             LocationApplier applier) {
-      super(config, store, scanner, planner, applier);
+                             LocationApplier applier, StateStore stateStore) {
+      super(config, store, scanner, planner, applier, stateStore);
     }
 
     boolean await(int target, long timeout) throws InterruptedException {

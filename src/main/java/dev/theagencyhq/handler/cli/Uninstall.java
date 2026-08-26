@@ -55,6 +55,7 @@ public class Uninstall extends ProcessCommand {
     deleteTree(failures, paths.storeRoot());
     deleteByPrefix(failures, paths.logFile().getParent(), paths.logFile().getFileName().toString());
     delete(failures, paths.socketFile());
+    delete(failures, paths.stateFile());
     deleteIfEmpty(paths.storeRoot().getParent());
     deleteIfEmpty(paths.logFile().getParent());
 

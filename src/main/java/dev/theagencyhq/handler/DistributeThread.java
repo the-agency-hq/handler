@@ -12,6 +12,8 @@ import module dev.theagencyhq.handler;
  * is independent — an exception applying one is logged and never aborts the others.
  *
  * <p>Runs every {@code distributeIntervalSeconds}, and wakes early whenever {@link ReceiveThread} changed the store.
+ * Every cycle ends by writing the state file, which is how {@code handler status} learns which Locations exist
+ * without scanning for them.
  *
  * @author Brian Pontarelli
  */
@@ -23,22 +25,24 @@ public class DistributeThread extends IntervalThread {
   private final ObjIntConsumer<Summary> observer;
   private final BriefPlanner planner;
   private final LocationScanner scanner;
+  private final StateStore stateStore;
   private final BriefStore store;
 
   public DistributeThread(HandlerConfig config, BriefStore store, LocationScanner scanner, BriefPlanner planner,
-                          LocationApplier applier) {
-    this(config, store, scanner, planner, applier, (_, _) -> {
+                          LocationApplier applier, StateStore stateStore) {
+    this(config, store, scanner, planner, applier, stateStore, (_, _) -> {
     });
   }
 
   public DistributeThread(HandlerConfig config, BriefStore store, LocationScanner scanner, BriefPlanner planner,
-                          LocationApplier applier, ObjIntConsumer<Summary> observer) {
+                          LocationApplier applier, StateStore stateStore, ObjIntConsumer<Summary> observer) {
     super("handler-distribute");
     this.config = config;
     this.store = store;
     this.scanner = scanner;
     this.planner = planner;
     this.applier = applier;
+    this.stateStore = stateStore;
     this.observer = observer;
   }
 
@@ -46,6 +50,7 @@ public class DistributeThread extends IntervalThread {
     List<Location> locations = scanner.scan();
     Map<ApplyResult, Integer> counts = new EnumMap<>(ApplyResult.class);
     Set<String> deferredPurges = new HashSet<>();
+    List<LocationEntry> entries = new ArrayList<>(locations.size());
 
     // One Location after another. Measured against a virtual-thread fan-out bounded to 8: the steady-state cycle,
     // where every Location is UNCHANGED, is 40ms serially across 100 Locations, and a version bump that rewrites
@@ -54,7 +59,7 @@ public class DistributeThread extends IntervalThread {
     // a Semaphore, an ExecutorService, and Future collection whose interrupt path has to mark every uncollected
     // Location FAILED to keep a revoked Organization from being purged on the assumption that silence means success.
     for (Location location : locations) {
-      ApplyResult result;
+      LocationResult result;
       try {
         result = applyTo(location, force);
       } catch (RuntimeException e) {
@@ -62,18 +67,27 @@ public class DistributeThread extends IntervalThread {
         // invisible to the deferred-purge set below, so a revoked Organization could be purged while this
         // Location's true state is still unknown.
         LOG.log(System.Logger.Level.ERROR, "Location [" + location.root() + "] failed unexpectedly", e);
-        result = ApplyResult.FAILED;
+        result = new LocationResult(ApplyResult.FAILED, "Failed unexpectedly: " + e.getMessage());
       }
 
       if (result == null) {
-        continue;         // skipped without teardown - it belongs in no bucket
+        // Skipped without teardown - it belongs in no bucket, but it is still a Location the developer can see
+        entries.add(LocationEntry.of(location, LocationStatus.SUCCESS, null));
+        continue;
       }
 
-      counts.merge(result, 1, Integer::sum);
-      if (result != ApplyResult.APPLIED && result != ApplyResult.UNCHANGED) {
+      ApplyResult applyResult = result.applyResult();
+      counts.merge(applyResult, 1, Integer::sum);
+      if (applyResult == ApplyResult.APPLIED || applyResult == ApplyResult.UNCHANGED) {
+        entries.add(LocationEntry.of(location, LocationStatus.SUCCESS, null));
+      } else {
+        entries.add(LocationEntry.of(location, LocationStatus.ERROR, result.message()));
         deferredPurges.add(location.organizationId());
       }
     }
+
+    // Before the purge, so the cycle's findings are recorded even if the purge fails
+    writeState(entries);
 
     if (scanner.startDirectoryUnreadable()) {
       // An empty or incomplete scan is indistinguishable from "no Locations exist" for any Organization the scan
@@ -106,7 +120,10 @@ public class DistributeThread extends IntervalThread {
     return config.distributeIntervalSeconds();
   }
 
-  private ApplyResult applyTo(Location location, boolean force) {
+  /**
+   * @return The result, or null when the Location was skipped because its Organization has no Brief.
+   */
+  private LocationResult applyTo(Location location, boolean force) {
     String organizationId = location.organizationId();
     Optional<StoredBrief> stored = store.latest(organizationId);
     boolean revoked = store.revoked(organizationId);
@@ -124,13 +141,18 @@ public class DistributeThread extends IntervalThread {
         plan = planner.plan(stored.get(), location);
       } catch (BriefPlanner.InvalidPlanException e) {
         LOG.log(System.Logger.Level.ERROR, "Location [" + location.root() + "] was skipped: " + e.getMessage(), e);
-        return ApplyResult.FAILED;
+        return new LocationResult(ApplyResult.FAILED, "Invalid Brief: " + e.getMessage());
       }
     } else {
       plan = LocationPlan.EMPTY;
     }
 
-    return applier.apply(location, plan, force);
+    ApplyResult result = applier.apply(location, plan, force);
+    return new LocationResult(result, switch (result) {
+      case APPLIED, UNCHANGED -> null;
+      case FAILED -> "Failed to apply. See the log for details.";
+      case SKIPPED_CONFLICT -> "Skipped due to conflicts. Run [handler sync --force] to adopt the conflicting files.";
+    });
   }
 
   private void purgeCompletedRevocations(Set<String> deferred) {
@@ -150,9 +172,24 @@ public class DistributeThread extends IntervalThread {
     }
   }
 
+  private void writeState(List<LocationEntry> entries) {
+    try {
+      stateStore.store(new HandlerState(Instant.now(), entries));
+    } catch (RuntimeException e) {
+      // A status file that cannot be written must never stop syncing
+      LOG.log(System.Logger.Level.WARNING, "Unable to write the state file", e);
+    }
+  }
+
   public record Summary(int applied, int unchanged, int conflict, int failed) {
     public boolean clean() {
       return conflict == 0 && failed == 0;
     }
+  }
+
+  /**
+   * One Location's {@link ApplyResult} plus the reason it is not a success, which is what the state file records.
+   */
+  private record LocationResult(ApplyResult applyResult, String message) {
   }
 }

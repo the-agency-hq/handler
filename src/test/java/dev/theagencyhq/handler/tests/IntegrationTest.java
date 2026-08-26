@@ -163,7 +163,8 @@ public class IntegrationTest extends BaseTest {
     HandlerConfig config = new HandlerConfig(locations().toString(), null, agency.url(), null, 3600, 3600);
     LocationScanner scanner = new LocationScanner(config);
     DistributeThread distributeThread = new DistributeThread(config, store, scanner, new BriefPlanner(),
-                                                             new LocationApplier());
+                                                             new LocationApplier(),
+                                                             new StateStore(base.resolve("state.json")));
     return new Handler(config, new AgencyClient(config.theAgencyURL(), new StubTokenSupplier("test-token")), store,
                        distributeThread);
   }

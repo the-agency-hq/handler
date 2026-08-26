@@ -282,6 +282,7 @@ public class UninstallTest extends BaseTest {
     Files.writeString(paths.logFile().getParent().resolve("handler.log.1"), "log");
     Files.writeString(paths.logFile().getParent().resolve("handler.log.0.lck"), "");
     Files.writeString(paths.socketFile(), "");
+    Files.writeString(paths.stateFile(), "{}");
   }
 
 }

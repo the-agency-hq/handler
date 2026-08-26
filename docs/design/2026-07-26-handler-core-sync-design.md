@@ -654,6 +654,8 @@ The store on disk is the *only* shared state between the two threads. The lock g
 
 `status` recomputes state from disk rather than reading persisted state. There is no state file to go stale, and `status` stays a pure read.
 
+> Superseded by `2026-08-26-status-state-file-design.md`: the daemon now writes a state file after every distribute cycle, and `status` reads it instead of scanning for Locations.
+
 ## 11. Logging
 
 `System.Logger` throughout, per the architecture doc. `Logging.configure(HandlerPaths)` sets up the JUL backend in `Main`:

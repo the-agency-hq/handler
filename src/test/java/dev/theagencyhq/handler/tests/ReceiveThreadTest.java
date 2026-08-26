@@ -119,7 +119,8 @@ public class ReceiveThreadTest extends BaseTest {
     // Neither thread is started - execute() is called directly, and nudge() is counted rather than delivered
     HandlerConfig config = new HandlerConfig(base.toString(), null, agency.url(), null, 3600, 3600);
     DistributeThread distributeThread = new DistributeThread(config, store, new LocationScanner(config),
-                                                             new BriefPlanner(), new LocationApplier()) {
+                                                             new BriefPlanner(), new LocationApplier(),
+                                                             new StateStore(base.resolve("state.json"))) {
       @Override
       public void nudge() {
         nudges.incrementAndGet();

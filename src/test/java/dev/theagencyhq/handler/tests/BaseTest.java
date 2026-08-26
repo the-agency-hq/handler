@@ -92,10 +92,12 @@ public abstract class BaseTest {
    * Creates a Location — an {@code agent-location.json} marker inside its own git repository — under {@link
    * #locations()}.
    */
-  protected Path location(String relative, String organizationId) throws IOException {
+  protected Path location(String relative, String organizationId, String... missionTypes) throws IOException {
     Path directory = Files.createDirectories(locations().resolve(relative));
+    String types = Arrays.stream(missionTypes).map(type -> "\"" + type + "\"").collect(Collectors.joining(","));
     Files.writeString(directory.resolve("agent-location.json"),
-                      "{\"version\":\"1.0.0\",\"organizationId\":\"" + organizationId + "\"}");
+                      "{\"version\":\"1.0.0\",\"organizationId\":\"" + organizationId + "\",\"missionTypes\":["
+                      + types + "]}");
     initRepository(directory);
     return directory;
   }

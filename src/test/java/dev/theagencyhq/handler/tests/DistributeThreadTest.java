@@ -265,9 +265,73 @@ public class DistributeThreadTest extends BaseTest {
     assertEquals(distribute(false), new DistributeThread.Summary(0, 1, 0, 0));
   }
 
+  @Test
+  public void stateFileRecordsEveryLocationAndWhatHappenedThere() throws IOException {
+    store.store(brief("42", 1, file(".claude/a.md", "alpha")));
+    store.store(brief("43", 1, file(".claude/a.md", "alpha")));
+    Path applied = location("applied", "42", "code", "docs");
+    Path conflicted = location("conflicted", "43");
+    Files.createDirectories(conflicted.resolve(".claude"));
+    Files.writeString(conflicted.resolve(".claude/a.md"), "unmanaged");
+    Path orphan = location("orphan", "999");
+
+    Instant before = Instant.now().minusSeconds(1);
+    distribute(false);
+
+    HandlerState state = stateStore().load().orElseThrow();
+    assertFalse(state.lastRun().isBefore(before), "lastRun was: " + state.lastRun());
+
+    Map<String, LocationEntry> byRoot = state.locations()
+                                             .stream()
+                                             .collect(Collectors.toMap(LocationEntry::root, entry -> entry));
+    assertEquals(byRoot.size(), 3, "Entries were: " + state.locations());
+    assertEquals(byRoot.get(applied.toString()),
+                 new LocationEntry(applied.toString(), "42", List.of("code", "docs"), LocationStatus.SUCCESS, null));
+    assertEquals(byRoot.get(orphan.toString()),
+                 new LocationEntry(orphan.toString(), "999", List.of(), LocationStatus.SUCCESS, null));
+
+    LocationEntry error = byRoot.get(conflicted.toString());
+    assertEquals(error.status(), LocationStatus.ERROR);
+    assertTrue(error.message().contains("Skipped due to conflicts"), "Message was: " + error.message());
+  }
+
+  @Test
+  public void stateFileIsRewrittenEveryCycle() throws IOException {
+    store.store(brief("42", 1, file(".claude/a.md", "alpha")));
+    Path location = location("app", "42");
+    distribute(false);
+    assertEquals(stateStore().load().orElseThrow().locations().size(), 1);
+
+    Files.delete(location.resolve("agent-location.json"));
+    distribute(false);
+
+    assertTrue(stateStore().load().orElseThrow().locations().isEmpty(), "The removed Location is gone from the file");
+  }
+
+  @Test
+  public void anUnwritableStateFileNeverStopsSyncing() throws IOException {
+    store.store(brief("42", 1, file(".claude/a.md", "alpha")));
+    Path location = location("app", "42");
+
+    // A file where the state directory should be makes every write fail
+    Files.writeString(base.resolve("state"), "in the way");
+    HandlerConfig config = new HandlerConfig(locations().toString(), null, null, null, 0, 0);
+    DistributeThread.Summary summary = new DistributeThread(config, store, new LocationScanner(config),
+                                                            new BriefPlanner(), new LocationApplier(), stateStore())
+        .distribute(false);
+
+    assertEquals(summary, new DistributeThread.Summary(1, 0, 0, 0));
+    assertEquals(Files.readString(location.resolve(".claude/a.md")), "alpha");
+  }
+
   private DistributeThread.Summary distribute(boolean force) throws IOException {
     HandlerConfig config = new HandlerConfig(locations().toString(), null, null, null, 0, 0);
-    return new DistributeThread(config, store, new LocationScanner(config), new BriefPlanner(), new LocationApplier())
+    return new DistributeThread(config, store, new LocationScanner(config), new BriefPlanner(), new LocationApplier(),
+                                stateStore())
         .distribute(force);
+  }
+
+  private StateStore stateStore() {
+    return new StateStore(base.resolve("state/state.json"));
   }
 }
