@@ -44,7 +44,8 @@ public final class Main {
       OAuthTokenSupplier tokens = new OAuthTokenSupplier(tokenStore, oauthClient);
       Credentials credentials = new Credentials(tokenStore, oauthClient, new AccessTokens(authConfiguration));
       AgencyClient agency = new AgencyClient(config.theAgencyURL(), tokens);
-      Handler handler = new Handler(config, agency, store, distributeThread, feed);
+      TokenWatcher watcher = new TokenWatcher(paths.tokensFile(), tokens::adoptFromDisk);
+      Handler handler = new Handler(config, agency, store, distributeThread, feed, watcher);
       Runtime.getRuntime().addShutdownHook(new Thread(handler::shutdown, "handler-shutdown"));
 
       Path home = Path.of(System.getProperty("user.home"));

@@ -10,10 +10,11 @@ import module dev.theagencyhq.handler;
 /**
  * Serves the stored access token and renews it with the refresh grant when The Agency rejects one.
  *
- * <p>The token is read from disk once and cached, so the per-request path does no file I/O. {@link #refresh()} is the
- * only thing that goes back to disk, and it starts by checking whether another process — a {@code handler login} the
- * developer just ran — already replaced the token. That check is what lets a login take effect in a running daemon
- * without a restart.
+ * <p>The token is read from disk once and cached, so the per-request path does no file I/O. Two things go back to
+ * disk: {@link #refresh()}, which starts by checking whether another process — a {@code handler login} the developer
+ * just ran — already replaced the token, and {@link #adoptFromDisk()}, which {@link TokenWatcher} calls the moment the
+ * file changes. Either one lets a login take effect in a running daemon without a restart; the watcher just makes it
+ * happen in seconds rather than on the next 401.
  *
  * @author Brian Pontarelli
  */
@@ -66,6 +67,27 @@ public class OAuthTokenSupplier implements TokenSupplier {
     } catch (RuntimeException e) {
       // Never fatal here: the caller turns this into a 401 that tells the developer to log in again
       LOG.log(System.Logger.Level.WARNING, "Unable to refresh the access token. Message was [{0}]", e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Re-reads {@code tokens.json} and adopts whatever it holds, present or absent. This is the {@link TokenWatcher}
+   * path, and it doubles as the filter that keeps this process's own refresh writes from waking the receive loop.
+   *
+   * @return True when the cached tokens changed — another process logged in or out. False when the file holds exactly
+   *     what is already cached, which is what a write by this process looks like, or when it cannot be read, in which
+   *     case the cached tokens are kept and the next 401 reports the real cause.
+   */
+  public synchronized boolean adoptFromDisk() {
+    try {
+      Tokens onDisk = store.load();
+      Tokens cached = tokens == null ? Tokens.EMPTY : tokens;
+      tokens = onDisk;
+      return !onDisk.equals(cached);
+    } catch (RuntimeException e) {
+      LOG.log(System.Logger.Level.WARNING, "Unable to read the stored tokens after they changed. Message was [{0}]",
+          e.getMessage());
       return false;
     }
   }

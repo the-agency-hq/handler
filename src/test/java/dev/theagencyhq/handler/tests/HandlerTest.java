@@ -17,6 +17,34 @@ public class HandlerTest extends BaseTest {
   private Handler handler;
 
   @Test
+  public void aLoginWrittenWhileTheDaemonRunsWakesTheReceiveLoop() throws Exception {
+    agency.script(304, "");
+    agency.script(304, "");
+    Path tokensFile = base.resolve("config/tokens.json");
+    handler = handler(new TokenWatcher(tokensFile, () -> true));
+
+    Thread caller = new Thread(() -> handler.daemon(TrayState.HEALTHY), "daemon-caller");
+    caller.start();
+    assertTrue(distributeThread.await(1, 5), "The startup pass must run");
+    assertEquals(agency.paths().size(), 1, "The startup pass makes exactly one briefing request");
+
+    new TokenStore(tokensFile).store(new Tokens("written-by-login", "refresh"));
+
+    // Both intervals are an hour, so a second briefing request can only come from the watcher's nudge. The macOS
+    // WatchService polls every two seconds, so allow well beyond that.
+    long deadline = System.currentTimeMillis() + 10_000;
+    while (agency.paths().size() < 2 && System.currentTimeMillis() < deadline) {
+      Thread.sleep(50);
+    }
+
+    assertEquals(agency.paths().size(), 2, "The login must trigger a receive cycle without waiting out the interval");
+
+    handler.shutdown();
+    caller.join(10_000);
+    Assert.assertFalse(caller.isAlive(), "shutdown() must release the daemon with the watcher running");
+  }
+
+  @Test
   public void aReceiveThatChangesNothingSendsNoNudge() throws Exception {
     agency.script(304, "");
     handler = handler();
@@ -135,11 +163,15 @@ public class HandlerTest extends BaseTest {
   }
 
   private Handler handler() throws IOException {
+    return handler(null);
+  }
+
+  private Handler handler(TokenWatcher watcher) throws IOException {
     HandlerConfig config = new HandlerConfig(locations().toString(), null, agency.url(), null, 3600, 3600);
     distributeThread = new CountingDistributeThread(config, store, new LocationScanner(config), new BriefPlanner(),
                                                     new LocationApplier());
     return new Handler(config, new AgencyClient(config.theAgencyURL(), new StubTokenSupplier("test-token")), store,
-                       distributeThread);
+                       distributeThread, null, watcher);
   }
 
   /** Counts distribute calls so the nudge can be observed without adding production indirection. */

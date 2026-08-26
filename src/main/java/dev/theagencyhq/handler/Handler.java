@@ -22,16 +22,27 @@ public class Handler {
   private final TrayFeed feed;
   private final ReceiveThread receiveThread;
   private final CountDownLatch shutdown = new CountDownLatch(1);
+  private final TokenWatcher watcher;
 
   public Handler(HandlerConfig config, AgencyClient agency, BriefStore store, DistributeThread distributeThread) {
-    this(config, agency, store, distributeThread, null);
+    this(config, agency, store, distributeThread, null, null);
   }
 
   public Handler(HandlerConfig config, AgencyClient agency, BriefStore store, DistributeThread distributeThread,
                  TrayFeed feed) {
+    this(config, agency, store, distributeThread, feed, null);
+  }
+
+  /**
+   * @param feed    The tray feed, or null for a CLI run that serves no tray.
+   * @param watcher The token file watcher, or null to rely on the receive interval alone to notice a login.
+   */
+  public Handler(HandlerConfig config, AgencyClient agency, BriefStore store, DistributeThread distributeThread,
+                 TrayFeed feed, TokenWatcher watcher) {
     this.config = config;
     this.distributeThread = distributeThread;
     this.feed = feed;
+    this.watcher = watcher;
     this.receiveThread = new ReceiveThread(config, agency, store, distributeThread,
         feed == null ? _ -> {
         } : feed::received);
@@ -46,6 +57,12 @@ public class Handler {
   public void daemon(TrayState initial) {
     if (feed != null) {
       feed.start(initial);
+    }
+
+    // Before the startup pass, so a login that lands while it runs is not missed. A nudge before the receive thread
+    // has started is recorded, not lost, and the first interval wait honours it.
+    if (watcher != null) {
+      watcher.start(receiveThread::nudge);
     }
 
     // Run the initial pass
@@ -77,6 +94,11 @@ public class Handler {
   public void shutdown() {
     if (feed != null) {
       feed.stop();
+    }
+
+    // The watcher first, so it stops feeding nudges before the receive side is told to stop
+    if (watcher != null) {
+      watcher.stop();
     }
 
     // Receive first, so it stops feeding nudges before the distribute side is told to stop

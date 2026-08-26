@@ -277,6 +277,16 @@ the only thing that goes back to disk, which is what keeps the per-request path 
 Step 1 is what makes "log in again while the daemon is running" work without a restart, and it is the reason
 tokens live in their own file (§8).
 
+On its own, step 1 only runs when The Agency answers `401`, which is once per receive interval — up to five minutes
+during which the tray still says "logged out" after a successful login. `TokenWatcher` closes that gap: the daemon
+registers a `WatchService` on the token file's directory, and on any event for `tokens.json` calls
+`OAuthTokenSupplier.adoptFromDisk()`, which re-reads the file and adopts whatever it holds, present or absent. When
+that changed the cached tokens — a login or a logout by another process — the receive thread is nudged, and its
+cycle re-reports the credential state to the tray within seconds. When it did not — the daemon's own refresh just
+wrote the file — nothing happens, so a refresh never costs a receive cycle. A `WatchService` rather than a socket or
+a signal because it needs no contract with the writer: `login`, `logout`, and anything that ever writes the file in
+future are all seen the same way, and a watcher that fails to start degrades to exactly the step-1 behaviour.
+
 `refresh()` is `synchronized`. Only the receive thread talks to The Agency today, so contention is theoretical
 — but `handler sync` and the daemon share this object graph, and a mutex around a network call that happens
 once an hour costs nothing.

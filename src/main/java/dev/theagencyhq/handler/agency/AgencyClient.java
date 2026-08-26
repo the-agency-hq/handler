@@ -39,8 +39,8 @@ public class AgencyClient {
       return new BriefingResult.Failed("Unable to build the briefing request: " + e.getMessage(), false);
     }
 
-    return switch (exchange(() -> request(BRIEFING_PATH).header("Content-Type", "application/json")
-                                                        .POST(HttpRequest.BodyPublishers.ofByteArray(body)))) {
+    return switch (requestWithRefreshAndSingleRetry(() -> request(BRIEFING_PATH).header("Content-Type", "application/json")
+                                                                                .POST(HttpRequest.BodyPublishers.ofByteArray(body)))) {
       case Attempt.Failure(String reason, boolean authenticationFailure) ->
           new BriefingResult.Failed(reason, authenticationFailure);
       case Attempt.Response(HttpResponse<byte[]> response) -> switch (response.statusCode()) {
@@ -53,38 +53,13 @@ public class AgencyClient {
   }
 
   public OrganizationResult organizations() {
-    return switch (exchange(() -> request(ORGANIZATION_PATH).GET())) {
+    return switch (requestWithRefreshAndSingleRetry(() -> request(ORGANIZATION_PATH).GET())) {
       case Attempt.Failure(String reason, boolean ignored) -> new OrganizationResult.Failed(reason);
       case Attempt.Response(HttpResponse<byte[]> response) -> switch (response.statusCode()) {
         case 200 -> parseOrganizations(response.body());
         default -> new OrganizationResult.Failed("The Agency returned status [" + response.statusCode() + "]");
       };
     };
-  }
-
-  /**
-   * Sends the request once, then once more after a refresh when The Agency answers 401. The retry's own 401 is
-   * terminal — a refreshed token the Agency still rejects means re-authentication, not another loop.
-   *
-   * @param requests Builds a fresh request per attempt, so the retry picks up the refreshed bearer token.
-   * @return The final response, or the failure it should be reported as.
-   */
-  private Attempt exchange(Supplier<HttpRequest.Builder> requests) {
-    Attempt attempt = send(requests);
-    if (!(attempt instanceof Attempt.Response(HttpResponse<byte[]> response)) || response.statusCode() != 401) {
-      return attempt;
-    }
-
-    if (!tokens.refresh()) {
-      return new Attempt.Failure("The Agency rejected the access token. Run [handler login].", true);
-    }
-
-    attempt = send(requests);
-    if (attempt instanceof Attempt.Response(HttpResponse<byte[]> retried) && retried.statusCode() == 401) {
-      return new Attempt.Failure("The Agency rejected the refreshed access token. Run [handler login].", true);
-    }
-
-    return attempt;
   }
 
   private BriefingResult parseBriefing(byte[] body) {
@@ -108,6 +83,31 @@ public class AgencyClient {
     return HttpRequest.newBuilder(URI.create(theAgencyURL + path))
                       .header("Authorization", "Bearer " + tokens.bearerToken())
                       .timeout(REQUEST_TIMEOUT);
+  }
+
+  /**
+   * Sends the request once, then once more after a refresh when The Agency answers 401. The retry's own 401 is terminal
+   * — a refreshed token the Agency still rejects means re-authentication, not another loop.
+   *
+   * @param requests Builds a fresh request per attempt, so the retry picks up the refreshed bearer token.
+   * @return The final response, or the failure it should be reported as.
+   */
+  private Attempt requestWithRefreshAndSingleRetry(Supplier<HttpRequest.Builder> requests) {
+    Attempt attempt = send(requests);
+    if (!(attempt instanceof Attempt.Response(HttpResponse<byte[]> response)) || response.statusCode() != 401) {
+      return attempt;
+    }
+
+    if (!tokens.refresh()) {
+      return new Attempt.Failure("The Agency rejected the access token. Run [handler login].", true);
+    }
+
+    attempt = send(requests);
+    if (attempt instanceof Attempt.Response(HttpResponse<byte[]> retried) && retried.statusCode() == 401) {
+      return new Attempt.Failure("The Agency rejected the refreshed access token. Run [handler login].", true);
+    }
+
+    return attempt;
   }
 
   private Attempt send(Supplier<HttpRequest.Builder> requests) {

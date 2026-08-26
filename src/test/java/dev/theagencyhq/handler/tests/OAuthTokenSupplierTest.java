@@ -70,6 +70,63 @@ public class OAuthTokenSupplierTest extends BaseTest {
   }
 
   @Test
+  public void adoptFromDiskIgnoresThisProcessesOwnRefreshWrite() {
+    store().store(new Tokens("old-access", "old-refresh"));
+    idp.script(200, "{\"access_token\":\"new-access\",\"refresh_token\":\"new-refresh\"}");
+    OAuthTokenSupplier supplier = supplier();
+    assertTrue(supplier.refresh());
+
+    // The refresh just wrote tokens.json. The watcher sees that write like any other, and this is what keeps it from
+    // costing a receive cycle
+    assertFalse(supplier.adoptFromDisk());
+    assertEquals(supplier.bearerToken(), "new-access");
+  }
+
+  @Test
+  public void adoptFromDiskKeepsTheCachedTokenWhenTheFileIsMalformed() throws IOException {
+    store().store(new Tokens("original", "refresh"));
+    OAuthTokenSupplier supplier = supplier();
+    assertEquals(supplier.bearerToken(), "original");
+
+    Files.writeString(base.resolve("config/tokens.json"), "not json at all");
+
+    assertFalse(supplier.adoptFromDisk(), "An unreadable file is reported, never thrown out of the watcher");
+    assertEquals(supplier.bearerToken(), "original", "The cached token is kept until a readable file replaces it");
+  }
+
+  @Test
+  public void adoptFromDiskTakesALoginWrittenByAnotherProcess() {
+    store().store(new Tokens("original", "refresh"));
+    OAuthTokenSupplier supplier = supplier();
+    assertEquals(supplier.bearerToken(), "original");
+
+    store().store(new Tokens("written-by-login", "new-refresh"));
+
+    assertTrue(supplier.adoptFromDisk());
+    assertEquals(supplier.bearerToken(), "written-by-login", "The next request must carry the new token, not a 401");
+    assertEquals(idp.paths(), List.of(), "An adopted token must not cost an IdP round trip");
+  }
+
+  @Test
+  public void adoptFromDiskTakesALogout() {
+    store().store(new Tokens("original", "refresh"));
+    OAuthTokenSupplier supplier = supplier();
+    assertEquals(supplier.bearerToken(), "original");
+
+    store().clear();
+
+    assertTrue(supplier.adoptFromDisk(), "A cleared file is a change the tray needs to hear about");
+    assertEquals(supplier.bearerToken(), "");
+    assertFalse(supplier.refresh(), "With nothing stored there is nothing to refresh");
+    assertEquals(idp.paths(), List.of());
+  }
+
+  @Test
+  public void adoptFromDiskWithNothingCachedAndNothingStoredIsNotAChange() {
+    assertFalse(supplier().adoptFromDisk());
+  }
+
+  @Test
   public void anAbsentTokenFileIsNotAnAdoption() {
     assertFalse(supplier().refresh());
     assertEquals(idp.paths(), List.of());

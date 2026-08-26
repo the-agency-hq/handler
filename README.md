@@ -19,7 +19,7 @@ Download the latest version of the Handler using the releases of this project he
 - **Briefs** are stored per Organization and per version under the Handler's local store, exactly as they arrived from The Agency. They are never modified or pruned.
 - **Locations** are discovered by scanning configured roots for an `agent-location.json` marker file. A Location owns its whole subtree, which means Locations cannot be nested.
 - **Applying** a Brief to a Location is manifest-driven: a `.handler-manifest` records what the Handler wrote, so updates and teardowns only ever touch files the Handler owns. Unmanaged files are never destroyed. Conflicts are logged and the Location is skipped until a human resolves them. All Handler-written paths are excluded from Git via `.git/info/exclude` - the Handler never touches `.gitignore`.
-- **Authentication** uses OAuth to connect to The Agency. This leverages [FusionAuth](https://fusionauth.io) as the identity provider. `handler login` runs a browser-based flow and stores tokens locally.
+- **Authentication** uses OAuth to connect to The Agency. This leverages [FusionAuth](https://fusionauth.io) as the identity provider. `handler login` runs a browser-based flow and stores tokens locally. The daemon watches the token file, so `handler login` and `handler logout` take effect within seconds without a restart.
 
 ## CLI
 

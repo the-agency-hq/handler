@@ -11,8 +11,8 @@ import module dev.theagencyhq.handler;
  * The {@code daemon} subcommand: runs the credential preflight, then the daemon in the foreground until it is shut
  * down. The preflight verdict is not fatal — exiting on a missing credential just crash-loops under launchd and
  * systemd, invisibly, because their restart policies treat the non-zero exit as a failure to retry. It only picks the
- * state the tray shows until the first receive cycle answers. The receive loop re-reads the stored tokens on every
- * 401, so a {@code handler login} run later is adopted without a restart.
+ * state the tray shows until the first receive cycle answers. The daemon watches the stored tokens and re-reads them
+ * on every 401, so a {@code handler login} run later is adopted within seconds and without a restart.
  *
  * @author Brian Pontarelli
  */
