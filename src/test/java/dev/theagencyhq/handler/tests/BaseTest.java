@@ -93,13 +93,24 @@ public abstract class BaseTest {
    * #locations()}.
    */
   protected Path location(String relative, String organizationId, String... missionTypes) throws IOException {
+    return location(relative, organizationId, List.of(missionTypes), List.of());
+  }
+
+  /**
+   * Creates a Location whose marker carries both Mission Types and agent types.
+   */
+  protected Path location(String relative, String organizationId, List<String> missionTypes, List<String> agentTypes)
+      throws IOException {
     Path directory = Files.createDirectories(locations().resolve(relative));
-    String types = Arrays.stream(missionTypes).map(type -> "\"" + type + "\"").collect(Collectors.joining(","));
     Files.writeString(directory.resolve("agent-location.json"),
                       "{\"version\":\"1.0.0\",\"organizationId\":\"" + organizationId + "\",\"missionTypes\":["
-                      + types + "]}");
+                      + jsonStrings(missionTypes) + "],\"agentTypes\":[" + jsonStrings(agentTypes) + "]}");
     initRepository(directory);
     return directory;
+  }
+
+  private String jsonStrings(List<String> values) {
+    return values.stream().map(value -> "\"" + value + "\"").collect(Collectors.joining(","));
   }
 
   /**

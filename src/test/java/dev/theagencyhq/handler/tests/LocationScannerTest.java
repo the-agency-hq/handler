@@ -61,13 +61,22 @@ public class LocationScannerTest extends BaseTest {
 
   @Test
   public void markerFieldsLandOnTheLocation() throws IOException {
-    marker("app", "{\"version\":\"1.0.0\",\"organizationId\":\" 42 \",\"missionTypes\":[\" Web \",\"LIBRARY\"]}");
+    marker("app", "{\"version\":\"1.0.0\",\"organizationId\":\" 42 \",\"missionTypes\":[\" Web \",\"LIBRARY\"],"
+                  + "\"agentTypes\":[\" Claude \",\".codex\",\"AGENTS\"]}");
 
     Location location = scan().getFirst();
 
     assertEquals(location.root(), base.resolve("app"));
     assertEquals(location.organizationId(), "42");
     assertEquals(location.missionTypes(), List.of("web", "library"));
+    assertEquals(location.agentTypes(), List.of("claude", "codex", "agents"));
+  }
+
+  @Test
+  public void markersWithoutAgentTypesAcceptEveryAgent() throws IOException {
+    marker("app", "{\"version\":\"1.0.0\",\"organizationId\":\"42\"}");
+
+    assertEquals(scan().getFirst().agentTypes(), List.of());
   }
 
   @Test(dataProvider = "unparseableVersions")

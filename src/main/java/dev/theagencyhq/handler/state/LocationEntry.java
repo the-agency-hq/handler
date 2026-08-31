@@ -14,28 +14,30 @@ import module org.lattejava.json;
  * @param root           The Location directory.
  * @param organizationId The Organization from the Location's marker.
  * @param missionTypes   The Mission Types from the marker, where empty means all.
+ * @param agentTypes     The agent types from the marker, where empty means all.
  * @param status         What the cycle did.
  * @param message        Why the status is {@link LocationStatus#ERROR}, or null on success.
  * @author Brian Pontarelli
  */
 @JSON
-public record LocationEntry(String root, String organizationId, List<String> missionTypes, LocationStatus status,
-                            String message) {
+public record LocationEntry(String root, String organizationId, List<String> missionTypes, List<String> agentTypes,
+                            LocationStatus status, String message) {
   public LocationEntry {
     root = root == null ? "" : root;
     organizationId = organizationId == null ? "" : organizationId;
     missionTypes = missionTypes == null ? List.of() : List.copyOf(missionTypes);
+    agentTypes = agentTypes == null ? List.of() : List.copyOf(agentTypes);
   }
 
   public static LocationEntry of(Location location, LocationStatus status, String message) {
-    return new LocationEntry(location.root().toString(), location.organizationId(), location.missionTypes(), status,
-                             message);
+    return new LocationEntry(location.root().toString(), location.organizationId(), location.missionTypes(),
+                             location.agentTypes(), status, message);
   }
 
   /**
    * @return The Location this entry recorded, so the CLI can plan and inspect it without re-reading its marker.
    */
   public Location toLocation() {
-    return new Location(Path.of(root), organizationId, missionTypes);
+    return new Location(Path.of(root), organizationId, missionTypes, agentTypes);
   }
 }

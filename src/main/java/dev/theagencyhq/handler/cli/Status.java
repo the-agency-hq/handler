@@ -177,6 +177,8 @@ public class Status {
       out.println("  " + entry.root());
       out.println("    Mission types: " + (entry.missionTypes().isEmpty() ? "all"
                                                                            : String.join(", ", entry.missionTypes())));
+      out.println("    Agent types:   " + (entry.agentTypes().isEmpty() ? "all"
+                                                                         : String.join(", ", entry.agentTypes())));
       out.println("    Status:        " + describe(entry.toLocation()));
     }
   }

@@ -233,7 +233,7 @@ public class LocationApplierTest extends BaseTest {
     // build/test/ lives inside the Handler's own git working tree, so without its own repository GitExclude would
     // resolve straight to this project's real .git/info/exclude - exactly the trap GitExcludeTest documents
     initRepository(root);
-    location = new Location(root, "42", List.of());
+    location = new Location(root, "42", List.of(), List.of());
   }
 
   @Test

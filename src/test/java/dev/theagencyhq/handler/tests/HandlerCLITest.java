@@ -114,7 +114,7 @@ public class HandlerCLITest extends BaseTest {
   @Test
   public void statusNamesEveryLocationFromTheStateFileAndWritesNothing() throws IOException {
     agency.script(200, response("42", 1, file(".claude/a.md", "alpha")));
-    Path location = location("app", "42", "code", "docs");
+    Path location = location("app", "42", List.of("code", "docs"), List.of("claude", "agents"));
     Path orphan = location("orphan", "999");
     Path gone = location("gone", "42");
     assertEquals(cli().run("sync"), 0);
@@ -129,12 +129,12 @@ public class HandlerCLITest extends BaseTest {
 
     String printed = output.toString();
     assertTrue(printed.contains("Locations (last daemon run "), "Output was: " + printed);
-    assertTrue(printed.contains("  " + location + "\n    Mission types: code, docs\n    Status:        Pending new version\n"),
-               "Output was: " + printed);
-    assertTrue(printed.contains("  " + orphan + "\n    Mission types: all\n    Status:        No Brief\n"),
-               "Output was: " + printed);
-    assertTrue(printed.contains("  " + gone + "\n    Mission types: all\n    Status:        Removed\n"),
-               "Output was: " + printed);
+    assertTrue(printed.contains("  " + location + "\n    Mission types: code, docs\n    Agent types:   claude, agents\n"
+                                + "    Status:        Pending new version\n"), "Output was: " + printed);
+    assertTrue(printed.contains("  " + orphan + "\n    Mission types: all\n    Agent types:   all\n"
+                                + "    Status:        No Brief\n"), "Output was: " + printed);
+    assertTrue(printed.contains("  " + gone + "\n    Mission types: all\n    Agent types:   all\n"
+                                + "    Status:        Removed\n"), "Output was: " + printed);
     assertFalse(printed.contains(unscanned.toString()), "Status never scans. Output was: " + printed);
 
     // A pure read - status must not bootstrap a manifest
@@ -183,10 +183,10 @@ public class HandlerCLITest extends BaseTest {
     assertEquals(cli().run("status"), 0);
 
     String printed = output.toString();
-    assertTrue(printed.contains("  " + unchanged + "\n    Mission types: all\n    Status:        Up-to-date\n"),
-               "Output was: " + printed);
-    assertTrue(printed.contains("  " + conflicted + "\n    Mission types: all\n    Status:        Skipped due to conflicts\n"),
-               "Output was: " + printed);
+    assertTrue(printed.contains("  " + unchanged + "\n    Mission types: all\n    Agent types:   all\n"
+                                + "    Status:        Up-to-date\n"), "Output was: " + printed);
+    assertTrue(printed.contains("  " + conflicted + "\n    Mission types: all\n    Agent types:   all\n"
+                                + "    Status:        Skipped due to conflicts\n"), "Output was: " + printed);
   }
 
   @Test

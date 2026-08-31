@@ -17,7 +17,7 @@ import static org.testng.Assert.*;
 public class MissionTypesTest extends BaseTest {
   @Test
   public void markerNormalizationMakesMatchingCaseInsensitive() {
-    LocationMarker marker = new LocationMarker(new Version("1.0.0"), " 42 ", List.of(" Web ", "LIBRARY"));
+    LocationMarker marker = new LocationMarker(new Version("1.0.0"), " 42 ", List.of(" Web ", "LIBRARY"), null);
 
     assertEquals(marker.organizationId(), "42");
     assertEquals(marker.missionTypes(), List.of("web", "library"));

@@ -12,8 +12,8 @@ import module java.base;
  *
  * @author Brian Pontarelli
  */
-public record Location(Path root, String organizationId, List<String> missionTypes) {
+public record Location(Path root, String organizationId, List<String> missionTypes, List<String> agentTypes) {
   public static Location from(Path root, LocationMarker marker) {
-    return new Location(root, marker.organizationId(), marker.missionTypes());
+    return new Location(root, marker.organizationId(), marker.missionTypes(), marker.agentTypes());
   }
 }

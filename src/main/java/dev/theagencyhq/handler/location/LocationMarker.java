@@ -18,13 +18,14 @@ import dev.theagencyhq.handler.location.internal.LocationMarkerJSON;
  */
 @JSON
 public record LocationMarker(@JSONField(asString = true) Version version, String organizationId,
-                             List<String> missionTypes) {
+                             List<String> missionTypes, List<String> agentTypes) {
   public static final int SUPPORTED_MAJOR_VERSION = 1;
 
   public LocationMarker {
     organizationId = organizationId == null ? "" : organizationId.trim();
     missionTypes = missionTypes == null ? List.of()
                                        : missionTypes.stream().map(t -> t.trim().toLowerCase(Locale.ROOT)).toList();
+    agentTypes = AgentTypes.normalize(agentTypes);
   }
 
   public static LocationMarker fromJSON(byte[] json) {
@@ -36,10 +37,11 @@ public record LocationMarker(@JSONField(asString = true) Version version, String
    *
    * @param organizationId The Organization the Location belongs to.
    * @param missionTypes   The Mission Types the Location accepts, where empty accepts all.
+   * @param agentTypes     The agent types the Location accepts, where empty accepts all.
    * @return The marker.
    */
-  public static LocationMarker supported(String organizationId, List<String> missionTypes) {
-    return new LocationMarker(new Version(SUPPORTED_MAJOR_VERSION + ".0.0"), organizationId, missionTypes);
+  public static LocationMarker supported(String organizationId, List<String> missionTypes, List<String> agentTypes) {
+    return new LocationMarker(new Version(SUPPORTED_MAJOR_VERSION + ".0.0"), organizationId, missionTypes, agentTypes);
   }
 
   /**

@@ -38,8 +38,10 @@ public class StateStoreTest extends BaseTest {
     StateStore store = new StateStore(file);
     Instant lastRun = Instant.parse("2026-08-26T17:04:11Z");
     HandlerState state = new HandlerState(lastRun, List.of(
-        new LocationEntry("/Users/dev/app", "42", List.of("code"), LocationStatus.SUCCESS, null),
-        new LocationEntry("/Users/dev/other", "43", List.of(), LocationStatus.ERROR, "Skipped due to conflicts")));
+        new LocationEntry("/Users/dev/app", "42", List.of("code"), List.of("claude", "agents"), LocationStatus.SUCCESS,
+                          null),
+        new LocationEntry("/Users/dev/other", "43", List.of(), List.of(), LocationStatus.ERROR,
+                          "Skipped due to conflicts")));
 
     store.store(state);
 
@@ -47,6 +49,8 @@ public class StateStoreTest extends BaseTest {
     String json = Files.readString(file);
     assertTrue(json.contains("\"lastRun\": \"2026-08-26T17:04:11Z\""), "JSON was: " + json);
     assertTrue(json.contains("\"status\": \"ERROR\""), "JSON was: " + json);
+    assertTrue(json.contains("\"agentTypes\": [\n        \"claude\",\n        \"agents\"\n      ]"),
+               "JSON was: " + json);
     assertFalse(json.contains("\"message\": null"), "Nulls are omitted. JSON was: " + json);
 
     // No temp file is left beside it
@@ -56,10 +60,21 @@ public class StateStoreTest extends BaseTest {
   }
 
   @Test
+  public void stateWrittenBeforeAgentTypesExistedStillLoads() throws IOException {
+    Path file = base.resolve("state.json");
+    Files.writeString(file, """
+        {"lastRun":"2026-08-26T17:04:11Z","locations":[{"root":"/one","organizationId":"42","missionTypes":[],
+        "status":"SUCCESS"}]}""");
+
+    LocationEntry entry = new StateStore(file).load().orElseThrow().locations().getFirst();
+    assertEquals(entry.agentTypes(), List.of());
+  }
+
+  @Test
   public void storeReplacesThePreviousFile() {
     StateStore store = new StateStore(base.resolve("state.json"));
     store.store(new HandlerState(Instant.EPOCH, List.of(
-        new LocationEntry("/one", "42", List.of(), LocationStatus.SUCCESS, null))));
+        new LocationEntry("/one", "42", List.of(), List.of(), LocationStatus.SUCCESS, null))));
     store.store(new HandlerState(Instant.EPOCH.plusSeconds(60), List.of()));
 
     HandlerState loaded = store.load().orElseThrow();

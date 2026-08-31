@@ -27,6 +27,10 @@ public class BriefPlanner {
       }
 
       Path relativePath = validate(file.path(), storedBrief);
+      if (!AgentTypes.includes(relativePath, location.agentTypes())) {
+        continue;
+      }
+
       if (!planned.add(relativePath)) {
         // `a//b.md` and `a/b.md` normalize identically. Writing both would double-write the file and put two
         // entries in the manifest, so the second teardown pass would try to delete an already-deleted path.

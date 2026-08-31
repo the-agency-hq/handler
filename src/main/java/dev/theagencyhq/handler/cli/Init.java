@@ -9,8 +9,8 @@ import module dev.theagencyhq.handler;
 
 /**
  * The {@code init} subcommand: asks The Agency which Organizations the user has access to, lets the user pick one,
- * asks for the optional Mission Types the Location accepts, and writes the {@code agent-location.json} marker into the
- * directory the command was run from. An existing marker is only replaced after an explicit confirmation.
+ * asks for the optional Mission Types and agent types the Location accepts, and writes the
+ * {@code agent-location.json} marker into the directory the command was run from. An existing marker is only replaced after an explicit confirmation.
  *
  * @author Brian Pontarelli
  */
@@ -72,7 +72,15 @@ public class Init {
       return 1;
     }
 
-    LocationMarker marker = LocationMarker.supported(organization.id(), missionTypes);
+    List<String> agentTypes;
+    try {
+      agentTypes = askAgentTypes();
+    } catch (IOException e) {
+      out.println("Unable to read the agent types: " + e.getMessage());
+      return 1;
+    }
+
+    LocationMarker marker = LocationMarker.supported(organization.id(), missionTypes, agentTypes);
     try {
       Files.writeString(markerFile, marker.toPrettyString() + "\n");
     } catch (IOException e) {
@@ -86,6 +94,18 @@ public class Init {
   }
 
   /**
+   * Asks for the agent types the Location accepts, each naming a dot-directory such as {@code claude} for
+   * {@code .claude/}.
+   *
+   * @return The entered types, or an empty list when the user entered nothing or the input ended, which means the
+   *     Location accepts every agent type.
+   */
+  private List<String> askAgentTypes() throws IOException {
+    out.print("Agent types for this Location (comma separated, e.g. claude, codex, agents; blank accepts all): ");
+    return list(readLine());
+  }
+
+  /**
    * Asks for the Mission Types the Location accepts.
    *
    * @return The entered types, or an empty list when the user entered nothing or the input ended, which means the
@@ -93,12 +113,7 @@ public class Init {
    */
   private List<String> askMissionTypes() throws IOException {
     out.print("Mission Types for this Location (comma separated, blank accepts all): ");
-    String answer = readLine();
-    if (answer == null || answer.isEmpty()) {
-      return List.of();
-    }
-
-    return Stream.of(answer.split(",")).map(String::trim).filter(t -> !t.isEmpty()).toList();
+    return list(readLine());
   }
 
   private boolean confirmOverwrite(Path markerFile) {
@@ -111,6 +126,18 @@ public class Init {
     }
 
     return answer != null && (answer.equalsIgnoreCase("y") || answer.equalsIgnoreCase("yes"));
+  }
+
+  /**
+   * @param answer A comma separated answer, or null when the input ended.
+   * @return The non-blank entries, trimmed.
+   */
+  private List<String> list(String answer) {
+    if (answer == null || answer.isEmpty()) {
+      return List.of();
+    }
+
+    return Stream.of(answer.split(",")).map(String::trim).filter(t -> !t.isEmpty()).toList();
   }
 
   /**

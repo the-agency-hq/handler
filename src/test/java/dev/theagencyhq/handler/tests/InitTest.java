@@ -83,6 +83,19 @@ public class InitTest extends BaseTest {
   }
 
   @Test
+  public void initWritesTheEnteredAgentTypes() throws IOException {
+    agency.script(200, organizationsJSON());
+
+    assertEquals(init("\r\n Claude, .codex ,,AGENTS\n").run(), 0);
+
+    LocationMarker marker = LocationMarker.fromJSON(Files.readAllBytes(markerFile()));
+    assertEquals(marker.organizationId(), "42");
+    assertEquals(marker.missionTypes(), List.of());
+    assertEquals(marker.agentTypes(), List.of("claude", "codex", "agents"));
+    assertTrue(output.toString().contains("Agent types"), "Output was: " + output);
+  }
+
+  @Test
   public void initWritesTheMarkerForTheSelectedOrganization() throws IOException {
     agency.script(200, organizationsJSON());
 
@@ -93,6 +106,7 @@ public class InitTest extends BaseTest {
     assertEquals(marker.organizationId(), "43");
     assertEquals(marker.majorVersion(), LocationMarker.SUPPORTED_MAJOR_VERSION);
     assertEquals(marker.missionTypes(), List.of());
+    assertEquals(marker.agentTypes(), List.of());
 
     assertEquals(agency.paths(), List.of(AgencyClient.ORGANIZATION_PATH));
     assertEquals(agency.authorizationHeaders(), List.of("Bearer test-token"));

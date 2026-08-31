@@ -18,6 +18,64 @@ public class BriefPlannerTest extends BaseTest {
   }
 
   @Test
+  public void agentTypesKeepOnlyTheListedDirectoriesAndRootFiles() {
+    String files = """
+        [{"path":".claude/rules/a.md","content":"a"},{"path":".codex/config.toml","content":"c"},
+         {"path":".agents/skills/s/SKILL.md","content":"s"},{"path":"README.md","content":"r"},
+         {"path":"docs/guide.md","content":"g"}]""";
+
+    LocationPlan plan = plan(files, List.of(), List.of("claude", "agents"));
+
+    Assert.assertEquals(plan.files().stream().map(PlannedFile::relativePath).toList(),
+                        List.of(Path.of(".agents/skills/s/SKILL.md"), Path.of(".claude/rules/a.md"), Path.of("README.md"),
+                                Path.of("docs/guide.md")));
+    Assert.assertEquals(List.copyOf(plan.directories()),
+                        List.of(Path.of(".agents"), Path.of(".agents/skills"), Path.of(".agents/skills/s"),
+                                Path.of(".claude"), Path.of(".claude/rules"), Path.of("docs")));
+  }
+
+  @Test
+  public void agentTypesAndMissionTypesBothHaveToPass() {
+    String files = """
+        [{"path":".claude/web.md","content":"w","missionTypes":["web"]},
+         {"path":".claude/lib.md","content":"l","missionTypes":["library"]},
+         {"path":".codex/web.md","content":"c","missionTypes":["web"]}]""";
+
+    LocationPlan plan = plan(files, List.of("web"), List.of("claude"));
+
+    Assert.assertEquals(plan.files().stream().map(PlannedFile::relativePath).toList(),
+                        List.of(Path.of(".claude/web.md")));
+  }
+
+  @Test
+  public void agentTypeAliasesSelectTheAgentsRealDirectory() {
+    String files = """
+        [{"path":".github/copilot-instructions.md","content":"c"},{"path":".claude/rules/a.md","content":"a"}]""";
+
+    LocationPlan plan = plan(files, List.of(), List.of("copilot"));
+
+    Assert.assertEquals(plan.files().stream().map(PlannedFile::relativePath).toList(),
+                        List.of(Path.of(".github/copilot-instructions.md")));
+  }
+
+  @Test
+  public void agentTypesExcludingEveryFileProduceAnEmptyPlan() {
+    LocationPlan plan = plan("[{\"path\":\".claude/a.md\",\"content\":\"a\"}]", List.of(), List.of("codex"));
+
+    Assert.assertTrue(plan.isEmpty());
+    Assert.assertTrue(plan.directories().isEmpty());
+  }
+
+  @Test
+  public void anExcludedAgentDirectoryStillHasItsPathsValidated() {
+    // Filtering happens after validation - a Brief must never get a traversal past the planner by aiming it at an
+    // Agent the Location does not want
+    Assert.expectThrows(BriefPlanner.InvalidPlanException.class,
+                        () -> plan("[{\"path\":\".codex/../../escape.md\",\"content\":\"x\"}]", List.of(),
+                                   List.of("claude")));
+  }
+
+  @Test
   public void anEmptyPlansDirectoriesCannotBeMutated() {
     // EMPTY is a shared constant - a caller mutating it would poison it for the whole JVM
     Assert.expectThrows(UnsupportedOperationException.class, () -> LocationPlan.EMPTY.directories().add(Path.of("x")));
@@ -128,11 +186,16 @@ public class BriefPlannerTest extends BaseTest {
   }
 
   private LocationPlan plan(String filesJSON, List<String> locationMissionTypes) {
+    return plan(filesJSON, locationMissionTypes, List.of());
+  }
+
+  private LocationPlan plan(String filesJSON, List<String> locationMissionTypes, List<String> locationAgentTypes) {
     String json = """
         {"checksum":"c","organization":{"id":"42","name":"Org"},"version":1,"files":%s}""".formatted(filesJSON);
     Brief brief = Brief.fromJSON(json.getBytes(StandardCharsets.UTF_8));
     StoredBrief stored = new StoredBrief(brief, Path.of("build/test/unused/brief.json"));
-    Location location = new Location(Path.of("build/test/unused-location"), "42", locationMissionTypes);
+    Location location = new Location(Path.of("build/test/unused-location"), "42", locationMissionTypes,
+                                     locationAgentTypes);
 
     return new BriefPlanner().plan(stored, location);
   }

@@ -269,7 +269,7 @@ public class DistributeThreadTest extends BaseTest {
   public void stateFileRecordsEveryLocationAndWhatHappenedThere() throws IOException {
     store.store(brief("42", 1, file(".claude/a.md", "alpha")));
     store.store(brief("43", 1, file(".claude/a.md", "alpha")));
-    Path applied = location("applied", "42", "code", "docs");
+    Path applied = location("applied", "42", List.of("code", "docs"), List.of("claude"));
     Path conflicted = location("conflicted", "43");
     Files.createDirectories(conflicted.resolve(".claude"));
     Files.writeString(conflicted.resolve(".claude/a.md"), "unmanaged");
@@ -286,9 +286,10 @@ public class DistributeThreadTest extends BaseTest {
                                              .collect(Collectors.toMap(LocationEntry::root, entry -> entry));
     assertEquals(byRoot.size(), 3, "Entries were: " + state.locations());
     assertEquals(byRoot.get(applied.toString()),
-                 new LocationEntry(applied.toString(), "42", List.of("code", "docs"), LocationStatus.SUCCESS, null));
+                 new LocationEntry(applied.toString(), "42", List.of("code", "docs"), List.of("claude"),
+                                   LocationStatus.SUCCESS, null));
     assertEquals(byRoot.get(orphan.toString()),
-                 new LocationEntry(orphan.toString(), "999", List.of(), LocationStatus.SUCCESS, null));
+                 new LocationEntry(orphan.toString(), "999", List.of(), List.of(), LocationStatus.SUCCESS, null));
 
     LocationEntry error = byRoot.get(conflicted.toString());
     assertEquals(error.status(), LocationStatus.ERROR);
